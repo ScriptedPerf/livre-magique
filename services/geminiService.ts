@@ -51,6 +51,7 @@ export const geminiService = {
               4. Provide the English translation in the 'english' field.
               5. Do not include page numbers.
               6. Identify 2-5 key vocabulary words (nouns, verbs, adjectives). ALWAYS extract at least 2 words.
+              7. Generate the page title STRICTLY IN FRENCH.
             `}
           ]
         }],
@@ -59,7 +60,7 @@ export const geminiService = {
           responseSchema: {
             type: Type.OBJECT,
             properties: {
-              title: { type: Type.STRING, description: "A short title for this specific page scene." },
+              title: { type: Type.STRING, description: "A short title for this specific page scene. STRICTLY IN FRENCH." },
               sentences: {
                 type: Type.ARRAY,
                 items: {
@@ -124,6 +125,153 @@ export const geminiService = {
       }
       throw error;
     }
+  },
+
+  async processBookFromText(fullText: string, voiceName: VoiceName): Promise<{ title: string; pages: any[] }> {
+    const apiKey = (process.env.API_KEY || process.env.GEMINI_API_KEY) as string;
+    const ai = new GoogleGenAI({ apiKey });
+
+    try {
+      console.log("Segmenting book text...");
+
+      // Step 1: Analyze text to split into pages and get ONE visual prompt
+      const segmentationResponse = await ai.models.generateContent({
+        model: 'gemini-2.0-flash',
+        contents: [{
+          parts: [{
+            text: `You are a professional children's book editor.
+            Analyze the following text and split it into logical "pages" for a picture book.
+            
+            Input Text:
+            "${fullText}"
+
+            Instructions:
+            1. Split the text into pages. Break the text where it makes sense narratively (e.g., scene changes, pauses).
+            2. Aim for roughly 4-5 lines per page, but PRIORITIZE narrative flow over strict line counts.
+            3. Create a single, vibrant image generation prompt for the BOOK COVER that represents the whole story.
+            4. Create a catchy Title for the book. STRICTLY IN FRENCH.
+            5. For each page, create a short title. STRICTLY IN FRENCH. Do NOT use English.
+            
+            Output JSON Schema:
+            {
+              "bookTitle": "string (The title MUST be in French language)",
+              "coverImagePrompt": "string (visual description for the whole book)",
+              "pages": [
+                { "text": "string (the text for this page)", "title": "string (Title MUST be in French)" }
+              ]
+            }`
+          }]
+        }],
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              bookTitle: { type: Type.STRING },
+              coverImagePrompt: { type: Type.STRING },
+              pages: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    text: { type: Type.STRING },
+                    title: { type: Type.STRING }
+                  },
+                  required: ["text", "title"]
+                }
+              }
+            },
+            required: ["bookTitle", "coverImagePrompt", "pages"]
+          }
+        }
+      });
+
+      const bookStructure = JSON.parse(segmentationResponse.text || "{}");
+      console.log(`Split into ${bookStructure.pages?.length} pages.`);
+
+      const processedPages = [];
+      const bookTitle = bookStructure.bookTitle || "Histoire Générée";
+
+      // Step 2: Generate ONE Cover Image
+      let coverImageBase64 = "";
+      // Skipped AI Gen: gemini-2.0-flash is not an image model. 
+      // We will generate a canvas cover in the App.
+
+      // Step 3: Process each page (Text Analysis + Audio)
+      const globalUsedWords = new Set<string>();
+
+      for (const [index, pageData] of bookStructure.pages.entries()) {
+        console.log(`Processing Page ${index + 1}...`);
+
+        // Analyze Text for Sentences/Keywords
+        const analysis = await this.processTextChunk(pageData.text, voiceName, Array.from(globalUsedWords));
+
+        // Add new keywords to global set to avoid repetition
+        if (analysis.keywords) {
+          analysis.keywords.forEach((k: any) => globalUsedWords.add(k.word.toLowerCase()));
+        }
+
+        processedPages.push({
+          title: pageData.title,
+          sentences: analysis.sentences,
+          keywords: analysis.keywords,
+          audio: analysis.audio,
+          image: coverImageBase64 // Use the cover image for every page
+        });
+
+        // Brief pause to help rate limits
+        await new Promise(r => setTimeout(r, 500));
+      }
+
+      return { title: bookTitle, pages: processedPages };
+
+    } catch (error) {
+      console.error("Book Processing Error:", error);
+      throw error;
+    }
+  },
+
+  // Helper to process a single pre-segmented chunk
+  async processTextChunk(text: string, voiceName: VoiceName, excludeWords: string[] = []) {
+    const apiKey = (process.env.API_KEY || process.env.GEMINI_API_KEY) as string;
+    const ai = new GoogleGenAI({ apiKey });
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.0-flash',
+      contents: [{
+        parts: [{
+          text: `Analyze the following French text: "${text}". 
+          Instructions:
+          1. Extract the text into sentences.
+          2. For each sentence, provide the exact 'french' text and its 'english' translation.
+          3. The 'french' field must contain ONLY French text.
+          4. The 'english' field must contain ONLY English text.
+          5. Identify 3-5 key vocabulary words. You MUST extract at least 3 words, even if they are simple (e.g., 'le', 'et', 'chat') or if the text is very short.
+          6. For keywords, provide the word, pronunciation, and simple explanation.
+          7. Do NOT include these words as keywords (already used): ${excludeWords.join(', ')}.`
+        }]
+      }],
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            sentences: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { french: { type: Type.STRING }, english: { type: Type.STRING } }, required: ["french", "english"] } },
+            keywords: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { word: { type: Type.STRING }, pronunciation: { type: Type.STRING }, explanation: { type: Type.STRING } }, required: ["word", "pronunciation", "explanation"] } }
+          }
+        }
+      }
+    });
+
+    const data = JSON.parse(response.text || "{}");
+
+    // Audio
+    const fullText = (data.sentences || []).map((s: any) => s.french).join(". ");
+    let audio = "";
+    if (fullText) {
+      try { audio = await this.getAudioBytes(fullText, voiceName); } catch (e) { }
+    }
+    return { ...data, audio };
   },
 
   async generateCover(prompt: string): Promise<string> {

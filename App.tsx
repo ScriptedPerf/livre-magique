@@ -132,30 +132,66 @@ const App: React.FC = () => {
           }
         }
       } else {
-        // Fallback for text files - create a simple "fake" image or skip image
-        updateTaskStatus(taskId, "Analyse Texte...", 30);
-        console.log("Processing as text file...");
+        // Text file processing with advanced segmentation
+        updateTaskStatus(taskId, "Création du livre...", 30);
+        console.log("Processing text book...");
         const text = await file.text();
-        // Since processPage expects image, we might need a separate service method or mock image
-        // For now, let's just use a placeholder image or a simple canvas with text
+
+        const result = await geminiService.processBookFromText(text, selectedVoice);
+
+        // Generate a fallback cover if needed
+        // Generate a clean, simple book page visual
+        let fallbackImage = "";
         const canvas = document.createElement('canvas');
-        canvas.width = 400; canvas.height = 600;
+        canvas.width = 600; canvas.height = 400; // Smaller height (more landscape/card like)
         const ctx = canvas.getContext('2d');
         if (ctx) {
-          ctx.fillStyle = '#f8fafc'; ctx.fillRect(0, 0, 400, 600);
-          ctx.fillStyle = '#1e293b'; ctx.font = '20px serif';
-          ctx.fillText("Version Texte", 50, 50);
-        }
-        const imageBase64 = canvas.toDataURL('image/jpeg').split(',')[1];
-        const result = await geminiService.processPage(imageBase64, selectedVoice);
+          // Cream paper background
+          ctx.fillStyle = '#fdfbf7';
+          ctx.fillRect(0, 0, 600, 400);
 
-        pages.push({
-          id: `page-${Date.now()}-1`,
-          title: result.title,
-          sentences: result.sentences,
-          audio: result.audio,
-          image: imageBase64
+          // Simple Border
+          ctx.strokeStyle = '#e2e8f0';
+          ctx.lineWidth = 4;
+          ctx.strokeRect(20, 20, 560, 360);
+
+          // Title Text
+          ctx.fillStyle = '#475569';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.font = 'bold 32px serif';
+
+          // Simple wrap
+          const words = result.title.split(' ');
+          let line = '';
+          let y = 180;
+          for (let n = 0; n < words.length; n++) {
+            const testLine = line + words[n] + ' ';
+            if (ctx.measureText(testLine).width > 500 && n > 0) {
+              ctx.fillText(line, 300, y);
+              line = words[n] + ' ';
+              y += 40;
+            } else {
+              line = testLine;
+            }
+          }
+          ctx.fillText(line, 300, y);
+
+          fallbackImage = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
+        }
+
+        // Add all generated pages
+        result.pages.forEach((p, idx) => {
+          pages.push({
+            id: `page-${Date.now()}-${idx + 1}`,
+            title: p.title,
+            sentences: p.sentences,
+            keywords: p.keywords,
+            audio: p.audio,
+            image: p.image || fallbackImage // Use fallback if AI image is missing
+          });
         });
+
         bookTitle = result.title;
       }
 
