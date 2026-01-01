@@ -1,0 +1,28 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bookGradient" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#3b82f6" />
+      <stop offset="100%" stop-color="#2563eb" />
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="15" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+  
+  <rect x="0" y="0" width="512" height="512" rx="128" fill="url(#bookGradient)" />
+  
+  <g transform="translate(106, 136) scale(0.6)">
+    <path d="M460 60 L460 400 C460 422 442 440 420 440 L100 440 C78 440 60 422 60 400 L60 60 C60 38 78 20 100 20 L420 20 C442 20 460 38 460 60 Z" fill="#ffffff" opacity="0.2"/>
+    <path d="M250 440 L250 80 C250 50 100 50 100 80 L100 440 C100 410 250 410 250 440 Z" fill="#ffffff" />
+    <path d="M250 440 L250 80 C250 50 400 50 400 80 L400 440 C400 410 250 410 250 440 Z" fill="#e2e8f0" />
+    <path d="M260 440 L260 80" stroke="#cbd5e1" stroke-width="4"/>
+  </g>
+
+  <!-- Sparkles -->
+  <g fill="#fbbf24" filter="url(#glow)">
+    <path d="M380 120 L390 100 L400 120 L420 130 L400 140 L390 160 L380 140 L360 130 Z" />
+    <path d="M100 350 L105 340 L110 350 L120 355 L110 360 L105 370 L100 360 L90 355 Z" opacity="0.8"/>
+    <path d="M420 380 L424 372 L428 380 L436 384 L428 388 L424 396 L420 388 L412 384 Z" opacity="0.6"/>
+  </g>
+</svg>
