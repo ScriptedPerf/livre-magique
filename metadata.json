@@ -1,0 +1,5 @@
+{
+  "name": "Livre Magique - French Picture Book Reader",
+  "description": "An AI-powered application to import French picture books (PDF/Text), extract text, translate to English, and read aloud using premium TTS voices.",
+  "requestFramePermissions": []
+}
