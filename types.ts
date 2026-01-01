@@ -28,12 +28,11 @@ export interface BookRecord {
   isSpread?: boolean;
 }
 
-export type VoiceName = 'Kore' | 'Puck' | 'Charon' | 'Fenrir' | 'Zephyr';
+export type VoiceName = 'Marie' | 'Pierre' | 'Léa' | 'Thomas';
 
 export const VOICES: { name: VoiceName; description: string }[] = [
-  { name: 'Kore', description: 'Clear & Bright' },
-  { name: 'Puck', description: 'Energetic' },
-  { name: 'Charon', description: 'Deep & Calm' },
-  { name: 'Fenrir', description: 'Strong' },
-  { name: 'Zephyr', description: 'Soft' },
+  { name: 'Marie', description: 'Douce & Claire' },   // Neural2-A (Female)
+  { name: 'Pierre', description: 'Calme & Profond' }, // Neural2-B (Male)
+  { name: 'Léa', description: 'Dynamique' },        // Neural2-C (Female)
+  { name: 'Thomas', description: 'Sérieux' },         // Neural2-D (Male)
 ];

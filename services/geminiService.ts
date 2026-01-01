@@ -45,10 +45,12 @@ export const geminiService = {
             {
               text: `Analyze this page of a French children's book.
               Instructions:
-              1. Extract ALL French text exactly as written.
-              2. Do not include page numbers or irrelevant text.
-              3. Provide an English translation for each sentence.
-              4. Identify 2-5 key vocabulary words (nouns, verbs, adjectives). ALWAYS extract at least 2 words.
+              1. Extract strictly the FRENCH text visible in the image.
+              2. IGNORE any English text or translations that might appear on the page.
+              3. Do NOT translate the French text yourself in the 'french' field (write it exactly as seen).
+              4. Provide the English translation in the 'english' field.
+              5. Do not include page numbers.
+              6. Identify 2-5 key vocabulary words (nouns, verbs, adjectives). ALWAYS extract at least 2 words.
             `}
           ]
         }],
@@ -146,7 +148,15 @@ export const geminiService = {
         input: { text },
         voice: {
           languageCode: 'fr-FR',
-          name: (voiceName as string) === 'Aoife' ? 'fr-FR-Neural2-A' : 'fr-FR-Neural2-B'
+          name: (() => {
+            switch (voiceName) {
+              case 'Marie': return 'fr-FR-Neural2-A';
+              case 'Pierre': return 'fr-FR-Neural2-B';
+              case 'Léa': return 'fr-FR-Neural2-C';
+              case 'Thomas': return 'fr-FR-Neural2-D';
+              default: return 'fr-FR-Neural2-A';
+            }
+          })()
         },
         audioConfig: {
           audioEncoding: 'LINEAR16',
@@ -164,9 +174,9 @@ export const geminiService = {
     return data.audioContent;
   },
 
-  async playCachedAudio(base64: string, text: string, onEnd: () => void) {
+  async playCachedAudio(base64: string, text: string, onEnd: () => void, onProgress?: (charIndex: number) => void) {
     if (!base64 && text) {
-      this.browserSpeak(text, onEnd);
+      this.browserSpeak(text, onEnd, undefined); // No boundary events for simple text fallback yet
       return;
     }
 
@@ -176,20 +186,53 @@ export const geminiService = {
       const source = audioContext.createBufferSource();
       source.buffer = buffer;
       source.connect(audioContext.destination);
-      source.onended = () => { onEnd(); audioContext.close(); };
+
+      const startTime = audioContext.currentTime;
+      const duration = buffer.duration;
+      let animationFrameId: number;
+
+      const trackProgress = () => {
+        const elapsed = audioContext.currentTime - startTime;
+        if (elapsed < duration) {
+          if (onProgress) {
+            // Estimated char index based on linear time mapping
+            // This assumes constant speaking rate, which isn't perfect but is a good approximation for sentence tracking
+            const progress = elapsed / duration;
+            const estimatedIndex = Math.floor(progress * text.length);
+            onProgress(estimatedIndex);
+          }
+          animationFrameId = requestAnimationFrame(trackProgress);
+        }
+      };
+
+      source.onended = () => {
+        if (onProgress) onProgress(text.length); // Ensure we finish at the end
+        cancelAnimationFrame(animationFrameId);
+        onEnd();
+        audioContext.close();
+      };
+
       source.start();
+      if (onProgress) trackProgress();
+
     } catch (error) {
       console.error("Playback error:", error);
-      this.browserSpeak(text, onEnd);
+      this.browserSpeak(text, onEnd, undefined); // Fallback
       audioContext.close();
     }
   },
 
-  browserSpeak(text: string, onEnd: () => void) {
+  browserSpeak(text: string, onEnd: () => void, onBoundary?: (e: SpeechSynthesisEvent) => void) {
+    // Cancel any ongoing speech first
+    window.speechSynthesis.cancel();
+
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'fr-FR';
     utterance.rate = 0.9;
     utterance.onend = onEnd;
+    if (onBoundary) {
+      utterance.onboundary = onBoundary;
+    }
     window.speechSynthesis.speak(utterance);
   }
 };

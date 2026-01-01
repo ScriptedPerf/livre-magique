@@ -21,11 +21,11 @@ const App: React.FC = () => {
   const [importingTasks, setImportingTasks] = useState<ImportingTask[]>([]);
   const [library, setLibrary] = useState<BookRecord[]>([]);
   const [activeBook, setActiveBook] = useState<BookRecord | null>(null);
-  const [selectedVoice, setSelectedVoice] = useState<VoiceName>("Aoife");
-  const [useBrowserVoice, setUseBrowserVoice] = useState<boolean>(false);
+  const [selectedVoice, setSelectedVoice] = useState<VoiceName>("Marie");
   const [showPasteModal, setShowPasteModal] = useState(false);
   const [isManagingLibrary, setIsManagingLibrary] = useState(false);
   const [pastedText, setPastedText] = useState("");
+  const [activeCharIndex, setActiveCharIndex] = useState(-1);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
@@ -262,16 +262,6 @@ const App: React.FC = () => {
             )}
             <div className="voice-selector flex items-center gap-2">
               <VoiceSelector selectedVoice={selectedVoice} onVoiceChange={setSelectedVoice} />
-              <label className="toggle-container flex items-center gap-1 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={useBrowserVoice}
-                  onChange={(e) => setUseBrowserVoice(e.target.checked)}
-                  className="sr-only peer"
-                />
-                <div className="relative w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
-                <span className="toggle-label text-xs font-bold text-slate-500 uppercase tracking-widest">Voix système</span>
-              </label>
             </div>
           </div>
         </div>
@@ -337,16 +327,41 @@ const App: React.FC = () => {
                   <div className="flex-1 p-8 md:p-12 flex flex-col justify-between relative group">
                     <div className="flex flex-col gap-8">
                       <div className="space-y-6">
-                        {page.sentences.map((s, i) => (
-                          <div key={i} className="group/line">
-                            <p className="text-xl font-serif text-slate-800 leading-relaxed pl-6 border-l-4 border-blue-100 group-hover/line:border-blue-400 transition-colors">
-                              {s.french}
-                            </p>
-                            <p className="text-sm font-sans text-slate-400 mt-1 pl-7 italic">
-                              {s.english}
-                            </p>
-                          </div>
-                        ))}
+                        {page.sentences.map((s, sentenceIdx) => {
+                          const previousLength = page.sentences.slice(0, sentenceIdx).reduce((acc, curr) => acc + curr.french.length + 1, 0); // +1 for join space
+                          const isSentenceActive = (activeCharIndex >= previousLength) && (activeCharIndex < previousLength + s.french.length);
+
+                          return (
+                            <div key={sentenceIdx} className={`group/line transition-all duration-300 ${isSentenceActive ? 'scale-[1.02]' : 'opacity-80'}`}>
+                              <p className={`text-xl font-serif leading-relaxed pl-6 border-l-4 transition-colors ${isSentenceActive ? 'text-blue-900 border-blue-500 font-medium' : 'text-slate-800 border-blue-100'}`}>
+                                {(() => {
+                                  let scanIndex = 0;
+                                  return s.french.split(' ').map((word, wordIdx) => {
+                                    const wordLength = word.length;
+                                    // Find next occurrence ensuring we skip past used parts
+                                    const startLocal = s.french.indexOf(word, scanIndex);
+                                    const endLocal = startLocal + wordLength;
+
+                                    // Update scan pointer
+                                    if (startLocal !== -1) scanIndex = endLocal;
+
+                                    // Global offsets
+                                    const startGlobal = previousLength + startLocal;
+                                    const endGlobal = previousLength + endLocal;
+
+                                    // Check if active character is within this word's range
+                                    const isWordActive = (activeCharIndex >= startGlobal) && (activeCharIndex <= endGlobal + 1); // +1 buffer
+
+                                    return <span key={wordIdx} className={`transition-all duration-75 rounded px-0.5 ${isWordActive ? "bg-yellow-300 text-black shadow-sm" : ""}`}>{word} </span>
+                                  });
+                                })()}
+                              </p>
+                              <p className="text-sm font-sans text-slate-400 mt-1 pl-7 italic">
+                                {s.english}
+                              </p>
+                            </div>
+                          )
+                        })}
                       </div>
 
                       {page.keywords && page.keywords.length > 0 && (
@@ -380,11 +395,12 @@ const App: React.FC = () => {
                           <button
                             onClick={() => {
                               const fullText = page.sentences.map(s => s.french).join(' ');
-                              if (useBrowserVoice) {
-                                geminiService.browserSpeak(fullText, () => { });
-                              } else {
-                                geminiService.playCachedAudio(page.audio, fullText, () => { });
-                              }
+                              geminiService.playCachedAudio(
+                                page.audio,
+                                fullText,
+                                () => setActiveCharIndex(-1),
+                                (index) => setActiveCharIndex(index)
+                              );
                             }}
                             className="w-16 h-16 bg-blue-600 rounded-full shadow-lg shadow-blue-200 hover:scale-110 active:scale-90 transition-all flex items-center justify-center text-white"
                             title="Écouter"
