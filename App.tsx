@@ -473,8 +473,8 @@ const App: React.FC = () => {
                   <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em]">Ma bibliothèque</h3>
                   <div className="flex gap-2">
                     <button onClick={() => setIsManagingLibrary(!isManagingLibrary)} className={`text-[10px] font-bold uppercase px-3 py-1.5 border rounded-lg ${isManagingLibrary ? 'bg-amber-50 border-amber-200 text-amber-600' : 'bg-white text-slate-500'}`}>{isManagingLibrary ? 'Terminer' : 'Gérer'}</button>
-                    <button onClick={exportLibrary} className="text-[10px] font-bold uppercase px-3 py-1.5 bg-white border rounded-lg text-slate-500 shadow-sm">Export</button>
-                    <button onClick={() => importInputRef.current?.click()} className="text-[10px] font-bold uppercase px-3 py-1.5 bg-white border rounded-lg text-slate-500 shadow-sm">Import</button>
+                    <button onClick={exportLibrary} className="text-[10px] font-bold uppercase px-3 py-1.5 bg-white border rounded-lg text-slate-500 shadow-sm">Exporter</button>
+                    <button onClick={() => importInputRef.current?.click()} className="text-[10px] font-bold uppercase px-3 py-1.5 bg-white border rounded-lg text-slate-500 shadow-sm">Importer</button>
                     <input type="file" ref={importInputRef} onChange={handleImportLibrary} className="hidden" accept="application/json" />
                   </div>
                 </div>
