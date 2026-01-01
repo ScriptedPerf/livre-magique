@@ -30,84 +30,96 @@ async function decodeAudioData(
 }
 
 export const geminiService = {
-  async processPage(imageBase64: string, voiceName: VoiceName): Promise<{ title: string; keySentences: string[]; audio: string }> {
+  async processPage(imageBase64: string, voiceName: VoiceName): Promise<{ title: string; sentences: { french: string; english: string }[]; keywords: { word: string; pronunciation: string; explanation: string }[]; audio: string }> {
     const apiKey = (process.env.API_KEY || process.env.GEMINI_API_KEY) as string;
     const ai = new GoogleGenAI({ apiKey });
 
-    const getAnalysis = async (promptType: 'json' | 'list' = 'json') => {
-      const modelName = 'gemini-2.0-flash';
-      const prompt = promptType === 'json'
-        ? `Precisely transcribe ALL French sentences on this page. Output JSON ONLY: {"title": "page title", "keySentences": ["transcribed sentence 1", "..."]}`
-        : `Listing the text on this page. Transcribe exactly what is written in French. No other text.`;
-
-      try {
-        // Use gemini-1.5-flash-latest for stable OCR
-        const response = await ai.models.generateContent({
-          model: modelName,
-          contents: [{
-            parts: [
-              { inlineData: { data: imageBase64, mimeType: 'image/jpeg' } },
-              { text: prompt }
-            ]
-          }],
-          // Only use JSON mode for the 'json' prompt type
-          config: promptType === 'json' ? { responseMimeType: "application/json" } : undefined
-        });
-        return response.text;
-      } catch (e: any) {
-        if (e.message?.includes("429")) {
-          console.warn("Analysis rate limit, waiting...");
-          await new Promise(r => setTimeout(r, 8000));
-          return null;
-        }
-        throw e;
-      }
-    };
-
     try {
-      console.log("Analyzing page text content...");
-      let rawText = await getAnalysis('json');
+      console.log("Analyzing page text content with Schema...");
 
-      // If empty or null, try once more with JSON
-      if (!rawText || rawText === "{}" || rawText.includes("[]")) {
-        console.log("Empty JSON response, retrying with simple list prompt...");
-        rawText = await getAnalysis('list');
-      }
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.0-flash',
+        contents: [{
+          parts: [
+            { inlineData: { data: imageBase64, mimeType: 'image/jpeg' } },
+            {
+              text: `Analyze this page of a French children's book.
+              Instructions:
+              1. Extract ALL French text exactly as written.
+              2. Do not include page numbers or irrelevant text.
+              3. Provide an English translation for each sentence.
+              4. Identify 2-5 key vocabulary words (nouns, verbs, adjectives). ALWAYS extract at least 2 words.
+            `}
+          ]
+        }],
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              title: { type: Type.STRING, description: "A short title for this specific page scene." },
+              sentences: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    french: { type: Type.STRING, description: "The exact French sentence." },
+                    english: { type: Type.STRING, description: "English translation." },
+                  },
+                  required: ["french", "english"],
+                },
+              },
+              keywords: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    word: { type: Type.STRING, description: "French word." },
+                    pronunciation: { type: Type.STRING, description: "Phonetic pronunciation guide." },
+                    explanation: { type: Type.STRING, description: "Simple definition or translation." },
+                  },
+                  required: ["word", "pronunciation", "explanation"],
+                },
+              },
+            },
+            required: ["title", "sentences", "keywords"],
+          },
+        },
+      });
 
-      if (!rawText) throw new Error("Analysis failed");
+      const result = JSON.parse(response.text || "{}");
+      console.log("Raw Schema Result:", result);
 
-      let title = "Page sans titre";
-      let keySentences: string[] = [];
+      let title = result.title || "Page sans titre";
+      let sentences = (result.sentences || []).filter((s: any) => s.french && s.french.trim().length > 0);
+      let keywords = result.keywords || [];
 
-      try {
-        // Attempt to parse JSON
-        if (rawText.trim().startsWith('{')) {
-          const result = JSON.parse(rawText);
-          title = result.title || title;
-          keySentences = result.keySentences || [];
-        } else {
-          // Fallback for non-JSON text (from the 'list' prompt)
-          keySentences = rawText.split('\n').filter(line => line.trim().length > 3);
-          title = keySentences[0]?.substring(0, 20) || title;
-        }
-      } catch (p) {
-        console.error("JSON Parse failed, treating as raw list");
-        keySentences = rawText.split('\n').filter(line => line.trim().length > 3);
+      // Fallback if schema fails to extract sentences (rare with strict schema)
+      if (sentences.length === 0) {
+        title = "Page sans texte";
+        sentences = [];
       }
 
       console.log("Synthesizing audio...");
       let audioBase64 = "";
-      if (keySentences.length > 0) {
+      if (sentences.length > 0) {
         try {
-          audioBase64 = await this.getAudioBytes(keySentences.join(". "), voiceName);
+          // Speak only the French parts
+          const fullText = sentences.map((s: any) => s.french).join(". ");
+          audioBase64 = await this.getAudioBytes(fullText, voiceName);
         } catch (e) {
           console.error("Audio Synthesis error:", e);
         }
       }
 
-      return { title, keySentences: keySentences.slice(0, 5), audio: audioBase64 };
+      return { title, sentences, keywords, audio: audioBase64 };
+
     } catch (error: any) {
-      console.error("Gemini Error:", error);
+      console.error("Gemini Schema Error:", error);
+      // Fallback to simple processing or re-throw
+      if (error.message?.includes("429")) {
+        throw new Error("Rate limit exceeded. Please wait a moment.");
+      }
       throw error;
     }
   },

@@ -1,8 +1,20 @@
 
+export interface Sentence {
+  french: string;
+  english: string;
+}
+
+export interface Keyword {
+  word: string;
+  pronunciation: string;
+  explanation: string;
+}
+
 export interface PageCard {
   id: string;
   title: string;
-  keySentences: string[];
+  sentences: Sentence[];
+  keywords: Keyword[];
   audio?: string;
   image?: string; // Base64 image of the PDF page
 }
@@ -13,6 +25,7 @@ export interface BookRecord {
   pages: PageCard[];
   dateAdded: number;
   coverImage?: string;
+  isSpread?: boolean;
 }
 
 export type VoiceName = 'Kore' | 'Puck' | 'Charon' | 'Fenrir' | 'Zephyr';

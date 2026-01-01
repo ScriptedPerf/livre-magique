@@ -10,6 +10,7 @@ export interface BookRecord {
   pages: PageCard[];
   dateAdded: number;
   coverImage?: string;
+  isSpread?: boolean;
 }
 
 export const dbService = {

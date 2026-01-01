@@ -67,17 +67,26 @@ const App: React.FC = () => {
         const numPages = pdf.numPages;
         console.log("PDF loaded, pages:", numPages);
 
+        const seenWords = new Set<string>();
+
         for (let i = 1; i <= numPages; i++) {
           updateTaskStatus(taskId, `Analyse Page ${i}/${numPages}...`, (i / numPages) * 100);
 
           console.log(`Rendering page ${i}...`);
           const page = await pdf.getPage(i);
-          const viewport = page.getViewport({ scale: 2.0 });
+          // Scale 1.5 is a good balance between quality and performance, ensuring full page context
+          const viewport = page.getViewport({ scale: 1.5 });
           const canvas = document.createElement('canvas');
           const context = canvas.getContext('2d');
           canvas.height = viewport.height;
           canvas.width = viewport.width;
+
+          // Render context with white background to handle transparency
           if (!context) throw new Error("Could not create canvas context");
+          context.fillStyle = "white";
+          context.fillRect(0, 0, canvas.width, canvas.height);
+
+          await page.render({ canvasContext: context, canvas, viewport } as any).promise;
 
           await page.render({ canvasContext: context, canvas, viewport } as any).promise;
           const imageBase64 = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
@@ -89,10 +98,19 @@ const App: React.FC = () => {
 
             if (i === 1) bookTitle = result.title;
 
+            // Filter out keywords seen in previous pages
+            const uniqueKeywords = (result.keywords || []).filter(k => {
+              const normalized = k.word.toLowerCase().trim();
+              if (seenWords.has(normalized)) return false;
+              seenWords.add(normalized);
+              return true;
+            });
+
             pages.push({
               id: `page-${Date.now()}-${i}`,
               title: result.title,
-              keySentences: result.keySentences,
+              sentences: result.sentences,
+              keywords: uniqueKeywords,
               audio: result.audio,
               image: imageBase64
             });
@@ -102,7 +120,7 @@ const App: React.FC = () => {
             pages.push({
               id: `page-${Date.now()}-${i}`,
               title: "Page (Erreur)",
-              keySentences: ["Désolé, cette page n'a pas pu être analysée."],
+              sentences: [{ french: "Désolé, cette page n'a pas pu être analysée.", english: "Sorry, this page could not be analyzed." }],
               audio: "",
               image: imageBase64
             });
@@ -134,7 +152,7 @@ const App: React.FC = () => {
         pages.push({
           id: `page-${Date.now()}-1`,
           title: result.title,
-          keySentences: result.keySentences,
+          sentences: result.sentences,
           audio: result.audio,
           image: imageBase64
         });
@@ -146,7 +164,7 @@ const App: React.FC = () => {
         title: bookTitle,
         pages: pages,
         dateAdded: Date.now(),
-        coverImage: pages[0]?.image || ""
+        coverImage: pages[0]?.image || "",
       };
 
       console.log("Saving new book to DB:", newBook.title);
@@ -311,42 +329,72 @@ const App: React.FC = () => {
               </div>
 
               {activeBook.pages.map((page, idx) => (
-                <div key={page.id} className="bg-white rounded-[3rem] shadow-2xl border border-slate-200 overflow-hidden flex flex-col md:flex-row min-h-[400px] animate-in slide-in-from-bottom-8 duration-500" style={{ animationDelay: `${idx * 100}ms` }}>
-                  <div className="w-full md:w-1/2 aspect-[3/4] bg-slate-200 relative shrink-0">
-                    <img src={`data:image/jpeg;base64,${page.image}`} className="w-full h-full object-cover" alt={`Page ${idx + 1}`} />
+                <div key={page.id} className="bg-white rounded-[3rem] shadow-2xl border border-slate-200 overflow-hidden flex flex-col min-h-[400px] animate-in slide-in-from-bottom-8 duration-500" style={{ animationDelay: `${idx * 100}ms` }}>
+                  <div className="w-full aspect-[4/3] bg-slate-200 relative shrink-0">
+                    <img src={`data:image/jpeg;base64,${page.image}`} className="w-full h-full object-contain bg-slate-50" alt={`Page ${idx + 1}`} />
                     <div className="absolute top-6 left-6 px-4 py-2 bg-black/50 backdrop-blur-md rounded-xl text-white text-[10px] font-black uppercase tracking-widest">Page {idx + 1}</div>
                   </div>
-                  <div className="flex-1 p-8 md:p-12 flex flex-col justify-between">
-                    <div>
-                      <h3 className="text-2xl font-black text-slate-900 mb-8 tracking-tighter uppercase leading-tight border-b border-slate-100 pb-4">{page.title}</h3>
-                      <div className="space-y-4">
-                        {page.keySentences.map((s, i) => (
-                          <p key={i} className="text-lg font-serif italic text-slate-700 leading-relaxed border-l-4 border-blue-100 pl-6">
-                            {s}
-                          </p>
+                  <div className="flex-1 p-8 md:p-12 flex flex-col justify-between relative group">
+                    <div className="flex flex-col gap-8">
+                      <div className="space-y-6">
+                        {page.sentences.map((s, i) => (
+                          <div key={i} className="group/line">
+                            <p className="text-xl font-serif text-slate-800 leading-relaxed pl-6 border-l-4 border-blue-100 group-hover/line:border-blue-400 transition-colors">
+                              {s.french}
+                            </p>
+                            <p className="text-sm font-sans text-slate-400 mt-1 pl-7 italic">
+                              {s.english}
+                            </p>
+                          </div>
                         ))}
                       </div>
+
+                      {page.keywords && page.keywords.length > 0 && (
+                        <div className="mt-4 pt-6 border-t border-slate-100">
+                          <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">Mots Clés</h4>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {page.keywords.map((k, i) => (
+                              <button
+                                key={i}
+                                onClick={() => geminiService.browserSpeak(k.word, () => { })}
+                                className="flex flex-col bg-slate-50 p-3 rounded-xl border border-slate-100 hover:border-blue-300 hover:shadow-md transition-all text-left group/word"
+                              >
+                                <div className="flex items-center justify-between w-full">
+                                  <span className="font-bold text-slate-800 group-hover/word:text-blue-700 transition-colors">{k.word}</span>
+                                  <div className="flex items-center gap-2">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 text-slate-300 group-hover/word:text-blue-500"><path d="M13.5 4.06c0-1.336-1.616-2.005-2.56-1.06l-4.5 4.5H4.508c-1.141 0-2.318.664-2.66 1.905A9.76 9.76 0 0 0 1.5 12c0 .898.121 1.768.35 2.595.341 1.24 1.518 1.905 2.659 1.905h1.93l4.5 4.5c.945.945 2.561.276 2.561-1.06V4.06ZM18.584 5.106a.75.75 0 0 1 1.06 0c3.808 3.807 3.808 9.98 0 13.788a.75.75 0 0 1-1.06-1.06 2.625 2.625 0 0 0 0-3.712.75.75 0 0 1 1.06-1.06 4.125 4.125 0 0 0 0-5.83.75.75 0 0 1-1.06-1.06Z" /></svg>
+                                    <span className="text-xs font-mono text-slate-500 bg-white px-1.5 py-0.5 rounded border border-slate-200">{k.pronunciation}</span>
+                                  </div>
+                                </div>
+                                <span className="text-xs text-slate-500 mt-1 italic">{k.explanation}</span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
 
-                    <div className="mt-12">
-                      {(page.keySentences.length > 0) ? (
-                        <button
-                          onClick={() => {
-                            const fullText = page.keySentences.join(' ');
-                            if (useBrowserVoice) {
-                              geminiService.browserSpeak(fullText, () => { });
-                            } else {
-                              geminiService.playCachedAudio(page.audio, fullText, () => { });
-                            }
-                          }}
-                          className="w-full bg-blue-600 text-white font-black py-5 px-8 rounded-2xl shadow-xl shadow-blue-200 hover:scale-[1.02] transition-all active:scale-95 flex items-center justify-center gap-3 uppercase tracking-widest text-sm"
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6"><path fillRule="evenodd" d="M4.5 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 0 1 0 1.972l-11.54 6.347a1.125 1.125 0 0 1-1.667-.986V5.653Z" clipRule="evenodd" /></svg>
-                          Écouter la page
-                        </button>
+                    <div className="mt-8 flex justify-end">
+                      {(page.sentences.length > 0) ? (
+                        <div className="relative">
+                          <button
+                            onClick={() => {
+                              const fullText = page.sentences.map(s => s.french).join(' ');
+                              if (useBrowserVoice) {
+                                geminiService.browserSpeak(fullText, () => { });
+                              } else {
+                                geminiService.playCachedAudio(page.audio, fullText, () => { });
+                              }
+                            }}
+                            className="w-16 h-16 bg-blue-600 rounded-full shadow-lg shadow-blue-200 hover:scale-110 active:scale-90 transition-all flex items-center justify-center text-white"
+                            title="Écouter"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-8 h-8 ml-1"><path fillRule="evenodd" d="M4.5 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 0 1 0 1.972l-11.54 6.347a1.125 1.125 0 0 1-1.667-.986V5.653Z" clipRule="evenodd" /></svg>
+                          </button>
+                        </div>
                       ) : (
-                        <div className="text-center py-4 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
-                          <span className="text-xs font-black text-slate-400 uppercase tracking-widest animate-pulse">Audio indisponible</span>
+                        <div className="text-center py-4">
+                          <span className="text-xs font-black text-slate-300 uppercase tracking-widest">Audio indisponible</span>
                         </div>
                       )}
                     </div>
