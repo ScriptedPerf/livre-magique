@@ -45,13 +45,17 @@ export const geminiService = {
             {
               text: `Analyze this page of a French children's book.
               Instructions:
-              1. Extract strictly the FRENCH text visible in the image.
+              1. TOTAL OCR MODE: Scan every pixel. Extract ALL French text regardless of size or location.
+              2. SPREAD AWARENESS: Many PDF pages have TWO book pages. Find text on BOTH left and right sides.
+              3. Extract strictly the FRENCH text visible in the image.
               2. IGNORE any English text or translations that might appear on the page.
               3. Do NOT translate the French text yourself in the 'french' field (write it exactly as seen).
               4. Provide the English translation in the 'english' field.
               5. Do not include page numbers.
               6. Identify 2-5 key vocabulary words (nouns, verbs, adjectives). ALWAYS extract at least 2 words.
               7. Generate the page title STRICTLY IN FRENCH.
+              8. IGNORE PUBLISHER JUNK: Skip copyright pages, credits, barcodes, seals, etc.
+              9. FALLBACK: If a page is purely visual, provide a brief description in brackets like [Un petit âne].
             `}
           ]
         }],
