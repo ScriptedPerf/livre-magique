@@ -1,4 +1,14 @@
 steps:
+  # 0. Update version from git date
+  - name: 'gcr.io/cloud-builders/git'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        VERSION=$(git log -1 --format=%cd --date=format:%Y.%m.%d.%H%M)
+        echo "Auto-versioning: setting version to $VERSION"
+        sed -i 's/"version": ".*"/"version": "'$VERSION'"/' package.json
+
   # 1. Build the container image
   - name: 'gcr.io/cloud-builders/docker'
     args: ['build', '-t', 'us-east1-docker.pkg.dev/$PROJECT_ID/my-repo/livre-magique:$_TAG', '.']
