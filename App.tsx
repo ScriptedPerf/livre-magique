@@ -138,74 +138,93 @@ const App: React.FC = () => {
         const result = await geminiService.processBookFromText(text, selectedVoice);
 
         // Generate a fallback cover if needed
-        // Generate a clean, simple book page visual
+        // Generate a fallback cover if needed
         let fallbackImage = "";
-        const canvas = document.createElement('canvas');
-        canvas.width = 600; canvas.height = 400; // Smaller height (more landscape/card like)
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          // Richer Background
-          const grad = ctx.createLinearGradient(0, 0, 600, 400);
-          grad.addColorStop(0, '#fefce8'); // yellow-50
-          grad.addColorStop(1, '#fef9c3'); // yellow-100
-          ctx.fillStyle = grad;
-          ctx.fillRect(0, 0, 600, 400);
-
-          // "Noise" texture (dots)
-          ctx.fillStyle = "rgba(0,0,0,0.02)";
-          for (let i = 0; i < 3000; i++) {
-            ctx.fillRect(Math.random() * 600, Math.random() * 400, 1, 1);
-          }
-
-          // Decorative Border
-          ctx.strokeStyle = '#d97706'; // amber-600
-          ctx.lineWidth = 3;
-          ctx.strokeRect(15, 15, 570, 370);
-          ctx.strokeStyle = '#1e3a8a'; // blue-900
-          ctx.lineWidth = 1;
-          ctx.strokeRect(22, 22, 556, 356);
-
-          // Decorative Corners
-          ctx.fillStyle = '#1e3a8a';
-          [22, 578].forEach(x => {
-            [22, 378].forEach(y => {
-              ctx.beginPath();
-              ctx.arc(x, y, 4, 0, Math.PI * 2);
-              ctx.fill();
-            });
+        try {
+          const loadCover = (): Promise<HTMLImageElement> => new Promise((resolve, reject) => {
+            const img = new Image();
+            img.crossOrigin = "Anonymous";
+            img.onload = () => resolve(img);
+            img.onerror = reject;
+            img.src = '/default-cover.png';
           });
 
-          // Title Text
-          ctx.fillStyle = '#1e3a8a'; // blue-900
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.font = 'bold 36px serif';
+          const img = await loadCover();
+          const canvas = document.createElement('canvas');
+          // Use image dimensions but ensure reasonable size
+          canvas.width = img.width;
+          canvas.height = img.height;
 
-          // Decorative Underline
-          ctx.beginPath();
-          ctx.moveTo(250, 150);
-          ctx.lineTo(350, 150);
-          ctx.strokeStyle = '#d97706';
-          ctx.lineWidth = 2;
-          ctx.stroke();
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            // Draw the default cover image
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-          // Simple wrap with improved spacing
-          const words = result.title.split(' ');
-          let line = '';
-          let y = 190;
-          for (let n = 0; n < words.length; n++) {
-            const testLine = line + words[n] + ' ';
-            if (ctx.measureText(testLine).width > 480 && n > 0) {
-              ctx.fillText(line, 300, y);
-              line = words[n] + ' ';
-              y += 48;
-            } else {
-              line = testLine;
+            // Configure Text for Title overlay
+            ctx.fillStyle = '#1e3a8a'; // Blue 900 - Dark Ink
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            // Adjust font relative to image size
+            const fontSize = Math.floor(canvas.width / 15);
+            ctx.font = `bold ${fontSize}px "Lora", serif`;
+
+            // Add a slight shadow to text for readability
+            ctx.shadowColor = "rgba(255, 255, 255, 0.8)";
+            ctx.shadowBlur = 4;
+            ctx.shadowOffsetX = 1;
+            ctx.shadowOffsetY = 1;
+
+            // Wrap Title Text
+            // We want to center it on the notebook (center of image)
+            // Assuming notebook is roughly central, we aim for the center 50% width
+            const words = result.title.split(' ');
+            let line = '';
+            let y = canvas.height / 2;
+            // Start a bit higher to account for potential multiple lines
+            // Let's pre-calculate roughly or just build lines
+
+            const maxLineWidth = canvas.width * 0.4; // 40% of with for the notebook page
+            const lineHeight = fontSize * 1.2;
+            const lines: string[] = [];
+
+            for (let n = 0; n < words.length; n++) {
+              const testLine = line + words[n] + ' ';
+              if (ctx.measureText(testLine).width > maxLineWidth && n > 0) {
+                lines.push(line);
+                line = words[n] + ' ';
+              } else {
+                line = testLine;
+              }
             }
-          }
-          ctx.fillText(line, 300, y);
+            lines.push(line);
 
-          fallbackImage = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
+            // Draw lines centered vertically
+            const totalTextHeight = lines.length * lineHeight;
+            let currentY = (canvas.height - totalTextHeight) / 2 + (lineHeight / 2);
+
+            // Adjust Y if needed (maybe the notebook is slightly lower or higher?)
+            // For now, center is safe.
+
+            for (const l of lines) {
+              ctx.fillText(l.trim(), canvas.width / 2, currentY);
+              currentY += lineHeight;
+            }
+
+            fallbackImage = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
+          }
+        } catch (e) {
+          console.error("Failed to load default cover, using simple fallback", e);
+          // Simple fallback if image fails load
+          const canvas = document.createElement('canvas');
+          canvas.width = 600; canvas.height = 400;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.fillStyle = '#fefce8';
+            ctx.fillRect(0, 0, 600, 400);
+            ctx.fillStyle = '#000';
+            ctx.fillText(result.title, 300, 200);
+            fallbackImage = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
+          }
         }
 
         // Add all generated pages
