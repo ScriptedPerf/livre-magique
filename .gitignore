@@ -1,49 +1,32 @@
-# Logs
-logs
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
-
+# Dependencies & Build
 node_modules
 dist
 dist-ssr
 *.local
+*.tsbuildinfo
 
-# Editor directories and files
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment
+.env
+.env.*
+
+
+
+# Editor/OS
 .vscode/*
 !.vscode/extensions.json
 .idea
 .DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
 
-# Environment variables
-.env
-.env.local
-.env.*.local
-
-# Build files
-*.tsbuildinfo
-
-# Test scripts
-test_*.js
-list_models.js
-test_tts.js
-test_flash.js
-test_20audio.js
-test_20exp.js
-test_lite.js
-test_pro.js
-test_25.js
-test_exp_audio.js
-test_universal_audio.js
-test_cloud_tts.js
 
 # Deployment documentation
 deploy_docs/
+
+# Archived files
+archive/

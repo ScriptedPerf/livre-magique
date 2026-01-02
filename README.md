@@ -11,6 +11,7 @@ Transform your French picture books into an interactive multimodal experience. `
 ## 📚 Documentation
 - [**Architecture Overview**](./ARCHITECTURE.md) - How the pieces fit together.
 - [**Contributing Guide**](./CONTRIBUTING.md) - How to set up for development.
+- [**Deployment Guide**](./DEPLOY.md) - How to run with Docker or defined on Cloud Run.
 
 ## ✨ Features
 
@@ -56,7 +57,9 @@ npm run dev
 ```
 
 ## 📖 Usage
-1. **Launch**: Open `http://localhost:5173`.
+1. **Launch**:
+   - **Local Dev**: Open `http://localhost:3001`
+   - **Docker/Production**: Open `http://localhost:8080` (or your Cloud Run URL)
 2. **Import**: Click **"Importer un livre"**.
    - **PDF**: Upload a scan of a children's book.
    - **Text**: Upload a `.txt` file or paste text directly. The AI will segment it into pages and generate an artistic cover.
