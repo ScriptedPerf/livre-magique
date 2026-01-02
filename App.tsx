@@ -46,7 +46,8 @@ const translations = {
     exportError: "Erreur export.",
     importError: "Erreur import.",
     deleteError: "Erreur: Impossible de supprimer le livre.",
-    errorIA: "Erreur: IA"
+    errorIA: "Erreur: IA",
+    frenchOnly: "Texte en français uniquement"
   },
   EN: {
     title: "Magic Book",
@@ -76,7 +77,8 @@ const translations = {
     exportError: "Export error.",
     importError: "Import error.",
     deleteError: "Error: Could not delete the book.",
-    errorIA: "Error: AI"
+    errorIA: "Error: AI",
+    frenchOnly: "French text only"
   }
 };
 
@@ -612,6 +614,10 @@ const App: React.FC = () => {
                   <button onClick={() => fileInputRef.current?.click()} className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-black text-sm uppercase tracking-widest py-4 px-10 rounded-full shadow-lg shadow-blue-200 transition-all hover:shadow-xl hover:-translate-y-1 active:scale-95">{t.pdfOrText}</button>
                   <button onClick={() => setShowPasteModal(true)} className="bg-white border text-slate-700 font-black text-sm uppercase py-4 px-10 rounded-full shadow-md transition-all hover:shadow-lg hover:-translate-y-1 active:scale-90 transition-all">{t.pasteText}</button>
                 </div>
+                <p className="mt-6 text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center justify-center gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-3 h-3"><path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12ZM12 8.25a.75.75 0 0 1 .75.75v3.75a.75.75 0 0 1-1.5 0V9a.75.75 0 0 1 .75-.75Zm0 8.25a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z" clipRule="evenodd" /></svg>
+                  {t.frenchOnly}
+                </p>
                 <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="application/pdf,text/plain" />
               </div>
 
@@ -673,6 +679,12 @@ const App: React.FC = () => {
           </div>
         )}
       </main>
+
+      <footer className="absolute bottom-4 left-6 z-40 pointer-events-none">
+        <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] opacity-50">
+          Version {typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '1.0.0'}
+        </span>
+      </footer>
     </div>
   );
 };
