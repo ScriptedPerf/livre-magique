@@ -17,6 +17,7 @@ steps:
         NEW_VERSION="$${BASE}-$${MONTH}-$${SEQ_PADDED}"
         echo "Auto-versioning: setting version to $$NEW_VERSION"
         sed -i 's/"version": ".*"/"version": "'$${NEW_VERSION}'"/' package.json
+        sed -i 's/__APP_VERSION__/'$${NEW_VERSION}'/g' index.html
 
   # 1. Build the container image
   - name: 'gcr.io/cloud-builders/docker'

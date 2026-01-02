@@ -43,7 +43,7 @@
 
 <body>
   <script>window.env = {};</script>
-  <script src="/config.js" onerror="console.log('Using baked-in environment variables')"></script>
+  <script src="/config.js?v=__APP_VERSION__" onerror="console.log('Using baked-in environment variables')"></script>
   <div id="root"></div>
   <script type="module" src="/index.tsx"></script>
 </body>
