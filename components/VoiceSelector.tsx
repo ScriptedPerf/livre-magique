@@ -5,13 +5,20 @@ import { VOICES, VoiceName } from '../types';
 interface VoiceSelectorProps {
   selectedVoice: VoiceName;
   onVoiceChange: (voice: VoiceName) => void;
+  uiLang: 'FR' | 'EN';
 }
 
-const VoiceSelector: React.FC<VoiceSelectorProps> = ({ selectedVoice, onVoiceChange }) => {
+const translations = {
+  FR: { selectVoice: "Choisir la voix" },
+  EN: { selectVoice: "Select Voice" }
+};
+
+const VoiceSelector: React.FC<VoiceSelectorProps> = ({ selectedVoice, onVoiceChange, uiLang }) => {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const activeVoice = VOICES.find(v => v.name === selectedVoice);
+  const t = translations[uiLang];
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -39,7 +46,7 @@ const VoiceSelector: React.FC<VoiceSelectorProps> = ({ selectedVoice, onVoiceCha
       {isOpen && (
         <div className="absolute right-0 mt-2 w-56 bg-white border border-slate-200 rounded-2xl shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
           <div className="p-3 bg-slate-50 border-b border-slate-100">
-            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Select Voice</span>
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">{t.selectVoice}</span>
           </div>
           <div className="p-1">
             {VOICES.map((voice) => (
@@ -49,11 +56,10 @@ const VoiceSelector: React.FC<VoiceSelectorProps> = ({ selectedVoice, onVoiceCha
                   onVoiceChange(voice.name);
                   setIsOpen(false);
                 }}
-                className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-colors ${
-                  selectedVoice === voice.name
+                className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-colors ${selectedVoice === voice.name
                     ? 'bg-blue-50 text-blue-700'
                     : 'hover:bg-slate-50 text-slate-600'
-                }`}
+                  }`}
               >
                 <div className="text-left">
                   <div className="text-sm font-bold">{voice.name}</div>

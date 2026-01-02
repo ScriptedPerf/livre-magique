@@ -15,6 +15,71 @@ interface ImportingTask {
   progress: number;
 }
 
+type Language = 'FR' | 'EN';
+
+const translations = {
+  FR: {
+    title: "Livre Magique",
+    aiActive: "IA active",
+    importBook: "Importer un livre",
+    pdfOrText: "Importer un PDF",
+    pasteText: "Coller du texte",
+    createStory: "Créer une histoire",
+    generateBook: "Générer le livre",
+    placeholderOnceUponATime: "Il était une fois...",
+    back: "Retour",
+    page: "Page",
+    keywords: "Mots Clés",
+    audioUnavailable: "Audio indisponible",
+    myLibrary: "Ma bibliothèque",
+    manage: "Gérer",
+    finish: "Terminer",
+    export: "Exporter",
+    import: "Importer",
+    delete: "Supprimer",
+    confirmDelete: "Voulez-vous vraiment supprimer ce livre ?",
+    starting: "Démarrage...",
+    readingPdf: "Lecture PDF...",
+    analyzingPage: "Analyse Page",
+    creatingBook: "Création du livre...",
+    done: "Terminé !",
+    exportError: "Erreur export.",
+    importError: "Erreur import.",
+    deleteError: "Erreur: Impossible de supprimer le livre.",
+    errorIA: "Erreur: IA"
+  },
+  EN: {
+    title: "Magic Book",
+    aiActive: "AI Active",
+    importBook: "Import a Book",
+    pdfOrText: "Import PDF",
+    pasteText: "Paste Text",
+    createStory: "Create a Story",
+    generateBook: "Generate Book",
+    placeholderOnceUponATime: "Once upon a time...",
+    back: "Back",
+    page: "Page",
+    keywords: "Keywords",
+    audioUnavailable: "Audio Unavailable",
+    myLibrary: "My Library",
+    manage: "Manage",
+    finish: "Finish",
+    export: "Export",
+    import: "Import",
+    delete: "Delete",
+    confirmDelete: "Are you sure you want to delete this book?",
+    starting: "Starting...",
+    readingPdf: "Reading PDF...",
+    analyzingPage: "Analyzing Page",
+    creatingBook: "Creating Book...",
+    done: "Done!",
+    exportError: "Export error.",
+    importError: "Import error.",
+    deleteError: "Error: Could not delete the book.",
+    errorIA: "Error: AI"
+  }
+};
+
 const App: React.FC = () => {
   const [importingTasks, setImportingTasks] = useState<ImportingTask[]>([]);
   const [library, setLibrary] = useState<BookRecord[]>([]);
@@ -23,7 +88,10 @@ const App: React.FC = () => {
   const [showPasteModal, setShowPasteModal] = useState(false);
   const [isManagingLibrary, setIsManagingLibrary] = useState(false);
   const [pastedText, setPastedText] = useState("");
+  const [uiLang, setUiLang] = useState<Language>('FR');
   const [activeCharIndex, setActiveCharIndex] = useState(-1);
+
+  const t = translations[uiLang];
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
@@ -51,7 +119,7 @@ const App: React.FC = () => {
 
   const processFile = async (file: File) => {
     const taskId = `task-${Date.now()}`;
-    setImportingTasks(prev => [...prev, { id: taskId, fileName: file.name, status: "Démarrage...", progress: 5 }]);
+    setImportingTasks(prev => [...prev, { id: taskId, fileName: file.name, status: t.starting, progress: 5 }]);
 
     try {
       console.log("Processing file:", file.name, "Type:", file.type);
@@ -59,7 +127,7 @@ const App: React.FC = () => {
       let bookTitle = file.name.replace(/\.[^/.]+$/, "");
 
       if (file.type === 'application/pdf') {
-        updateTaskStatus(taskId, "Lecture PDF...", 10);
+        updateTaskStatus(taskId, t.readingPdf, 10);
         const pdfData = await file.arrayBuffer();
         const pdf = await pdfjsLib.getDocument({ data: pdfData }).promise;
         const numPages = pdf.numPages;
@@ -68,7 +136,7 @@ const App: React.FC = () => {
         const seenWords = new Set<string>();
 
         for (let i = 1; i <= numPages; i++) {
-          updateTaskStatus(taskId, `Analyse Page ${i}/${numPages}...`, (i / numPages) * 100);
+          updateTaskStatus(taskId, `${t.analyzingPage} ${i}/${numPages}...`, (i / numPages) * 100);
 
           console.log(`Rendering page ${i}...`);
           const page = await pdf.getPage(i);
@@ -131,7 +199,7 @@ const App: React.FC = () => {
         }
       } else {
         // Text file processing with advanced segmentation
-        updateTaskStatus(taskId, "Création du livre...", 30);
+        updateTaskStatus(taskId, t.creatingBook, 30);
         console.log("Processing text book...");
         const text = await file.text();
 
@@ -254,12 +322,12 @@ const App: React.FC = () => {
       await dbService.saveBook(newBook);
       setLibrary(prev => [newBook, ...prev]);
 
-      updateTaskStatus(taskId, "Terminé !", 100);
+      updateTaskStatus(taskId, t.done, 100);
       removeTask(taskId);
 
     } catch (error: any) {
       console.error("Critical error in processFile:", error);
-      updateTaskStatus(taskId, `Erreur: ${error.message || 'IA'}`, 0);
+      updateTaskStatus(taskId, `Erreur: ${error.message || t.errorIA}`, 0);
       removeTask(taskId);
     }
   };
@@ -300,7 +368,7 @@ const App: React.FC = () => {
       a.href = url;
       a.download = `biblio-${new Date().toISOString().split('T')[0]}.json`;
       a.click();
-    } catch (error) { alert("Erreur export."); }
+    } catch (error) { alert(t.exportError); }
   };
 
   const handleImportLibrary = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -312,12 +380,12 @@ const App: React.FC = () => {
         await dbService.saveBook(item);
       }
       setLibrary(await dbService.getAllBooks());
-    } catch (error) { alert("Erreur import."); }
+    } catch (error) { alert(t.importError); }
   };
 
-  const deleteBook = async (e: React.MouseEvent, id: string) => {
-    e.stopPropagation();
-    if (!window.confirm("Voulez-vous vraiment supprimer ce livre ?")) return;
+  const deleteBook = async (id: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (!window.confirm(t.confirmDelete)) return;
 
     try {
       console.log("Deleting book:", id);
@@ -327,7 +395,7 @@ const App: React.FC = () => {
       if (activeBook?.id === id) reset();
     } catch (err) {
       console.error("Error deleting book:", err);
-      alert("Erreur: Impossible de supprimer le livre.");
+      alert(t.deleteError);
     }
   };
 
@@ -348,17 +416,24 @@ const App: React.FC = () => {
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3 cursor-pointer group" onClick={reset}>
             <img src="/icon.svg" className="w-10 h-10 rounded-xl shadow-lg border border-white/60 group-hover:scale-105 transition-transform" alt="Logo" />
-            <h1 className="text-lg font-black text-slate-800 hidden sm:block tracking-tighter uppercase relative top-px">Livre Magique</h1>
+            <h1 className="text-lg font-black text-slate-800 hidden sm:block tracking-tighter uppercase relative top-px">{t.title}</h1>
           </div>
           <div className="flex items-center gap-4">
+            <button
+              onClick={() => setUiLang(prev => prev === 'FR' ? 'EN' : 'FR')}
+              className="flex items-center gap-2 px-3 py-1.5 bg-white/60 border border-slate-100 rounded-full shadow-sm hover:bg-white transition-all text-[10px] font-black uppercase tracking-widest text-slate-600"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3.5 h-3.5"><path strokeLinecap="round" strokeLinejoin="round" d="m10.5 21 5.25-11.25L21 21m-9-3h7.5M3 5.621a48.474 48.474 0 0 1 6-.371m0 0c1.12 0 2.233.038 3.334.114M9 5.25V3m3.334 2.364C11.176 10.658 7.69 15.08 3 17.502m9.334-12.138A24.564 24.564 0 0 1 12 10.25" /></svg>
+              {uiLang}
+            </button>
             {importingTasks.length > 0 && (
               <div className="flex items-center gap-2 px-3 py-1 bg-white/60 border border-blue-100 rounded-full shadow-sm">
                 <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-                <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest">IA active</span>
+                <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest">{t.aiActive}</span>
               </div>
             )}
             <div className="voice-selector flex items-center gap-2">
-              <VoiceSelector selectedVoice={selectedVoice} onVoiceChange={setSelectedVoice} />
+              <VoiceSelector selectedVoice={selectedVoice} onVoiceChange={setSelectedVoice} uiLang={uiLang} />
             </div>
           </div>
         </div>
@@ -390,14 +465,14 @@ const App: React.FC = () => {
           <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/20 backdrop-blur-xl p-4">
             <div className="bg-white/90 backdrop-blur-2xl w-full max-w-2xl rounded-[2.5rem] shadow-2xl flex flex-col overflow-hidden border border-white/50">
               <div className="p-8 border-b border-slate-100/50 flex justify-between items-center">
-                <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">Créer une histoire</h3>
+                <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">{t.createStory}</h3>
                 <button onClick={() => setShowPasteModal(false)} className="p-2 hover:bg-slate-100/50 rounded-full transition-colors"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-6 h-6 text-slate-400"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" /></svg></button>
               </div>
               <div className="p-8">
-                <textarea className="w-full h-64 p-6 bg-slate-50/50 border-2 border-slate-100 rounded-2xl font-serif text-lg outline-none focus:border-blue-500 transition-colors placeholder:text-slate-300" placeholder="Il était une fois..." value={pastedText} onChange={(e) => setPastedText(e.target.value)} />
+                <textarea className="w-full h-64 p-6 bg-slate-50/50 border-2 border-slate-100 rounded-2xl font-serif text-lg outline-none focus:border-blue-500 transition-colors placeholder:text-slate-300" placeholder={t.placeholderOnceUponATime} value={pastedText} onChange={(e) => setPastedText(e.target.value)} />
               </div>
               <div className="p-8 bg-slate-50/30 flex justify-end gap-4">
-                <button onClick={handlePasteSubmit} disabled={!pastedText.trim()} className="px-8 py-3 bg-blue-600 text-white text-sm font-black uppercase rounded-2xl shadow-lg shadow-blue-200 transition-transform active:scale-95 hover:bg-blue-700">Générer le livre</button>
+                <button onClick={handlePasteSubmit} disabled={!pastedText.trim()} className="px-8 py-3 bg-blue-600 text-white text-sm font-black uppercase rounded-2xl shadow-lg shadow-blue-200 transition-transform active:scale-95 hover:bg-blue-700">{t.generateBook}</button>
               </div>
             </div>
           </div>
@@ -409,19 +484,28 @@ const App: React.FC = () => {
               <div className="flex items-center justify-between sticky top-4 z-20">
                 <button onClick={reset} className="glass px-4 py-3 rounded-2xl hover:bg-white transition-all flex items-center gap-2 text-xs font-black uppercase tracking-widest text-slate-500">
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" /></svg>
-                  Retour
+                  {t.back}
                 </button>
                 <div className="glass px-6 py-3 rounded-2xl">
                   <h2 className="text-xl font-black text-slate-800 tracking-tighter uppercase">{activeBook.title}</h2>
                 </div>
-                <div className="w-24"></div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => deleteBook(activeBook.id)}
+                    className="glass px-4 py-3 rounded-2xl hover:bg-red-50 hover:text-red-600 transition-all flex items-center gap-2 text-xs font-black uppercase tracking-widest text-slate-400"
+                    title={t.delete}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg>
+                  </button>
+                  <div className="w-24"></div>
+                </div>
               </div>
 
               {activeBook.pages.map((page, idx) => (
                 <div key={page.id} className="glass rounded-[3rem] overflow-hidden flex flex-col min-h-[400px] animate-in slide-in-from-bottom-8 duration-500" style={{ animationDelay: `${idx * 100}ms` }}>
                   <div className="w-full aspect-[4/3] bg-slate-100/50 relative shrink-0">
-                    <img src={`data:image/jpeg;base64,${page.image}`} className="w-full h-full object-contain mix-blend-multiply" alt={`Page ${idx + 1}`} />
-                    <div className="absolute top-6 left-6 px-4 py-2 bg-white/80 backdrop-blur-md rounded-xl text-slate-900 border border-white text-[10px] font-black uppercase tracking-widest shadow-sm">Page {idx + 1}</div>
+                    <img src={`data:image/jpeg;base64,${page.image}`} className="w-full h-full object-contain mix-blend-multiply" alt={`${t.page} ${idx + 1}`} />
+                    <div className="absolute top-6 left-6 px-4 py-2 bg-white/80 backdrop-blur-md rounded-xl text-slate-900 border border-white text-[10px] font-black uppercase tracking-widest shadow-sm">{t.page} {idx + 1}</div>
                   </div>
                   <div className="flex-1 p-8 md:p-12 flex flex-col justify-between relative group">
                     <div className="flex flex-col gap-8">
@@ -465,7 +549,7 @@ const App: React.FC = () => {
 
                       {page.keywords && page.keywords.length > 0 && (
                         <div className="mt-4 pt-6 border-t border-slate-200/60">
-                          <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">Mots Clés</h4>
+                          <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">{t.keywords}</h4>
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             {page.keywords.map((k, i) => (
                               <button
@@ -509,7 +593,7 @@ const App: React.FC = () => {
                         </div>
                       ) : (
                         <div className="text-center py-4">
-                          <span className="text-xs font-black text-slate-300 uppercase tracking-widest">Audio indisponible</span>
+                          <span className="text-xs font-black text-slate-300 uppercase tracking-widest">{t.audioUnavailable}</span>
                         </div>
                       )}
                     </div>
@@ -523,10 +607,10 @@ const App: React.FC = () => {
             <div className="max-w-6xl mx-auto space-y-12 pb-24">
               <div className="glass p-12 rounded-[2.5rem] text-center group">
                 <div className="bg-blue-50/80 p-6 rounded-full inline-block mb-6 group-hover:scale-110 transition-transform shadow-inner"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-10 h-10 text-blue-600"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg></div>
-                <h2 className="text-4xl font-black text-slate-800 mb-8 tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">Importer un livre</h2>
+                <h2 className="text-4xl font-black text-slate-800 mb-8 tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">{t.importBook}</h2>
                 <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                  <button onClick={() => fileInputRef.current?.click()} className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-black text-sm uppercase tracking-widest py-4 px-10 rounded-full shadow-lg shadow-blue-200 transition-all hover:shadow-xl hover:-translate-y-1 active:scale-95">PDF ou Texte</button>
-                  <button onClick={() => setShowPasteModal(true)} className="bg-white border text-slate-700 font-black text-sm uppercase py-4 px-10 rounded-full shadow-md transition-all hover:shadow-lg hover:-translate-y-1 active:scale-95">Coller du texte</button>
+                  <button onClick={() => fileInputRef.current?.click()} className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-black text-sm uppercase tracking-widest py-4 px-10 rounded-full shadow-lg shadow-blue-200 transition-all hover:shadow-xl hover:-translate-y-1 active:scale-95">{t.pdfOrText}</button>
+                  <button onClick={() => setShowPasteModal(true)} className="bg-white border text-slate-700 font-black text-sm uppercase py-4 px-10 rounded-full shadow-md transition-all hover:shadow-lg hover:-translate-y-1 active:scale-90 transition-all">{t.pasteText}</button>
                 </div>
                 <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="application/pdf,text/plain" />
               </div>
@@ -535,7 +619,7 @@ const App: React.FC = () => {
                 <div className="flex items-center justify-between px-2">
                   <div className="flex items-center gap-2 bg-white/40 px-4 py-2 rounded-full border border-white/50 shadow-sm backdrop-blur-md">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 text-blue-500"><path d="M11.25 4.533A9.707 9.707 0 0 0 6 3.75a9.707 9.707 0 0 0-6 3.75V16.575a1.125 1.125 0 0 0 1.667.986A8.967 8.967 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-13.759v13.759m0-13.759a9.708 9.708 0 0 1 6-3.758 9.708 9.708 0 0 1 6 3.758V16.575a1.125 1.125 0 0 1-1.667.986 8.967 8.967 0 0 0-4.333-.456M12 18.292V4.533" /></svg>
-                    <h3 className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Ma bibliothèque</h3>
+                    <h3 className="text-[10px] font-black text-slate-600 uppercase tracking-widest">{t.myLibrary}</h3>
                   </div>
                   <div className="flex bg-white/40 p-1 rounded-full border border-white/50 backdrop-blur-md shadow-sm">
                     <button
@@ -543,16 +627,16 @@ const App: React.FC = () => {
                       className={`flex items-center gap-2 px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-wider transition-all ${isManagingLibrary ? 'bg-amber-100 text-amber-700 shadow-sm' : 'hover:bg-white/60 text-slate-600'}`}
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3.5 h-3.5"><path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" /></svg>
-                      {isManagingLibrary ? 'Terminer' : 'Gérer'}
+                      {isManagingLibrary ? t.finish : t.manage}
                     </button>
                     <div className="w-px bg-slate-200/50 my-1 mx-1"></div>
                     <button onClick={exportLibrary} className="flex items-center gap-2 px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-wider text-slate-600 hover:bg-white/60 hover:text-blue-600 transition-all">
                       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3.5 h-3.5"><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" /></svg>
-                      Exporter
+                      {t.export}
                     </button>
                     <button onClick={() => importInputRef.current?.click()} className="flex items-center gap-2 px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-wider text-slate-600 hover:bg-white/60 hover:text-emerald-600 transition-all">
                       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3.5 h-3.5"><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" transform="rotate(180 12 12)" /></svg>
-                      Importer
+                      {t.import}
                     </button>
                     <input type="file" ref={importInputRef} onChange={handleImportLibrary} className="hidden" accept="application/json" />
                   </div>
@@ -568,7 +652,13 @@ const App: React.FC = () => {
                           <div className="w-full h-full flex items-center justify-center bg-white/50 opacity-30"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1} stroke="currentColor" className="w-12 h-12"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25v14.25" /></svg></div>
                         )}
                         {isManagingLibrary && (
-                          <button onClick={(e) => deleteBook(e, book.id)} className="absolute inset-0 z-20 bg-red-600/90 flex flex-col items-center justify-center text-white backdrop-blur-sm transition-opacity"><span className="font-black uppercase text-xs">Supprimer</span></button>
+                          <button
+                            onClick={(e) => deleteBook(book.id, e)}
+                            className="absolute top-4 right-4 z-20 w-10 h-10 bg-red-600 text-white rounded-full flex items-center justify-center shadow-lg hover:scale-110 active:scale-95 transition-all"
+                            title={t.delete}
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg>
+                          </button>
                         )}
                         <div className="absolute inset-0 z-10 pointer-events-none bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
                       </div>
