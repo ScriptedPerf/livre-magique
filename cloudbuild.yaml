@@ -5,18 +5,18 @@ steps:
     args:
       - '-c'
       - |
-        MONTH=$(git log -1 --format=%cd --date=format:%Y%m)
-        SINCE=$(git log -1 --format=%cd --date=format:%Y-%m-01)
-        SEQ=$(git rev-list --count HEAD --since="$SINCE")
+        MONTH=$$(git log -1 --format=%cd --date=format:%Y%m)
+        SINCE=$$(git log -1 --format=%cd --date=format:%Y-%m-01)
+        SEQ=$$(git rev-list --count HEAD --since="$$SINCE")
         # Ensure SEQ is at least 1 and padded
-        SEQ_PADDED=$(printf "%02d" $SEQ)
+        SEQ_PADDED=$$(printf "%02d" $$SEQ)
         
         # Get base version (X.X.X) from package.json
-        BASE=$(grep '"version":' package.json | head -1 | awk -F: '{ print $2 }' | sed 's/[", ]//g' | cut -d- -f1)
+        BASE=$$(grep '"version":' package.json | head -1 | awk -F: '{ print $$2 }' | sed 's/[", ]//g' | cut -d- -f1)
         
-        NEW_VERSION="${BASE}-${MONTH}-${SEQ_PADDED}"
-        echo "Auto-versioning: setting version to $NEW_VERSION"
-        sed -i 's/"version": ".*"/"version": "'$NEW_VERSION'"/' package.json
+        NEW_VERSION="$${BASE}-$${MONTH}-$${SEQ_PADDED}"
+        echo "Auto-versioning: setting version to $$NEW_VERSION"
+        sed -i 's/"version": ".*"/"version": "'$${NEW_VERSION}'"/' package.json
 
   # 1. Build the container image
   - name: 'gcr.io/cloud-builders/docker'
