@@ -44,3 +44,6 @@ test_25.js
 test_exp_audio.js
 test_universal_audio.js
 test_cloud_tts.js
+
+# Deployment documentation
+deploy_docs/
