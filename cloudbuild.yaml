@@ -1,0 +1,27 @@
+steps:
+  # 1. Build the container image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'us-east1-docker.pkg.dev/$PROJECT_ID/my-repo/livre-magique:$COMMIT_SHA', '.']
+
+  # 2. Push the image to Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'us-east1-docker.pkg.dev/$PROJECT_ID/my-repo/livre-magique:$COMMIT_SHA']
+
+  # 3. Deploy to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'livre-magique'
+      - '--image=us-east1-docker.pkg.dev/$PROJECT_ID/my-repo/livre-magique:$COMMIT_SHA'
+      - '--region=us-east1'
+      - '--platform=managed'
+      - '--allow-unauthenticated'
+      - '--set-env-vars=GEMINI_API_KEY=$_GEMINI_API_KEY'
+
+substitutions:
+  _GEMINI_API_KEY: "This_Value_Is_Set_In_Cloud_Build_Settings"
+
+options:
+  logging: CLOUD_LOGGING_ONLY
