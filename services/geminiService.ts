@@ -31,7 +31,7 @@ async function decodeAudioData(
 
 export const geminiService = {
   async processPage(imageBase64: string, voiceName: VoiceName): Promise<{ title: string; sentences: { french: string; english: string }[]; keywords: { word: string; pronunciation: string; explanation: string }[]; audio: string }> {
-    const apiKey = (process.env.API_KEY || process.env.GEMINI_API_KEY) as string;
+    const apiKey = ((window as any).env?.GEMINI_API_KEY || process.env.API_KEY || process.env.GEMINI_API_KEY) as string;
     const ai = new GoogleGenAI({ apiKey });
 
     try {
@@ -132,7 +132,7 @@ export const geminiService = {
   },
 
   async processBookFromText(fullText: string, voiceName: VoiceName): Promise<{ title: string; pages: any[] }> {
-    const apiKey = (process.env.API_KEY || process.env.GEMINI_API_KEY) as string;
+    const apiKey = ((window as any).env?.GEMINI_API_KEY || process.env.API_KEY || process.env.GEMINI_API_KEY) as string;
     const ai = new GoogleGenAI({ apiKey });
 
     try {
@@ -237,7 +237,7 @@ export const geminiService = {
 
   // Helper to process a single pre-segmented chunk
   async processTextChunk(text: string, voiceName: VoiceName, excludeWords: string[] = []) {
-    const apiKey = (process.env.API_KEY || process.env.GEMINI_API_KEY) as string;
+    const apiKey = ((window as any).env?.GEMINI_API_KEY || process.env.API_KEY || process.env.GEMINI_API_KEY) as string;
     const ai = new GoogleGenAI({ apiKey });
 
     const response = await ai.models.generateContent({
@@ -279,7 +279,7 @@ export const geminiService = {
   },
 
   async generateCover(prompt: string): Promise<string> {
-    const ai = new GoogleGenAI({ apiKey: (process.env.API_KEY || process.env.GEMINI_API_KEY) as string });
+    const ai = new GoogleGenAI({ apiKey: ((window as any).env?.GEMINI_API_KEY || process.env.API_KEY || process.env.GEMINI_API_KEY) as string });
     const response = await ai.models.generateContent({
       model: 'gemini-2.0-flash',
       contents: [{ parts: [{ text: `Vibrant children's book cover: ${prompt}` }] }],
@@ -290,7 +290,7 @@ export const geminiService = {
   },
 
   async getAudioBytes(text: string, voiceName: VoiceName): Promise<string> {
-    const apiKey = (process.env.API_KEY || process.env.GEMINI_API_KEY) as string;
+    const apiKey = ((window as any).env?.GEMINI_API_KEY || process.env.API_KEY || process.env.GEMINI_API_KEY) as string;
     const url = `https://texttospeech.googleapis.com/v1/text:synthesize?key=${apiKey}`;
 
     const response = await fetch(url, {

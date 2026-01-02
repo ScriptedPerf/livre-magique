@@ -5,10 +5,8 @@ import { dbService, BookRecord } from './services/dbService';
 import { VoiceName } from './types';
 import VoiceSelector from './components/VoiceSelector';
 import * as pdfjsLib from 'pdfjs-dist';
-// @ts-ignore
-import pdfWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
+pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
 
 interface ImportingTask {
   id: string;
