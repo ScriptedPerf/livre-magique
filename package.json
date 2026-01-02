@@ -1,7 +1,7 @@
 {
   "name": "livre-magique---french-picture-book-reader",
   "private": true,
-  "version": "2026.01.02.1429",
+  "version": "1.0.0-202601-11",
   "type": "module",
   "scripts": {
     "dev": "vite --host",
