@@ -30,3 +30,6 @@ deploy_docs/
 
 # Archived files
 archive/
+
+# AI Agent Configuration
+.agent/

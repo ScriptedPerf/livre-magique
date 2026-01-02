@@ -7,3 +7,4 @@ dist
 coverage
 test_*.js
 *.bat
+.agent
