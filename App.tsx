@@ -300,9 +300,18 @@ const App: React.FC = () => {
 
   const deleteBook = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    await dbService.deleteBook(id);
-    setLibrary(prev => prev.filter(b => b.id !== id));
-    if (activeBook?.id === id) reset();
+    if (!window.confirm("Voulez-vous vraiment supprimer ce livre ?")) return;
+
+    try {
+      console.log("Deleting book:", id);
+      await dbService.deleteBook(id);
+      console.log("Book deleted successfully from DB");
+      setLibrary(prev => prev.filter(b => b.id !== id));
+      if (activeBook?.id === id) reset();
+    } catch (err) {
+      console.error("Error deleting book:", err);
+      alert("Erreur: Impossible de supprimer le livre.");
+    }
   };
 
   const reset = () => {
@@ -542,9 +551,9 @@ const App: React.FC = () => {
                           <div className="w-full h-full flex items-center justify-center bg-white/50 opacity-30"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1} stroke="currentColor" className="w-12 h-12"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25v14.25" /></svg></div>
                         )}
                         {isManagingLibrary && (
-                          <button onClick={(e) => deleteBook(e, book.id)} className="absolute inset-0 bg-red-600/90 flex flex-col items-center justify-center text-white backdrop-blur-sm transition-opacity"><span className="font-black uppercase text-xs">Supprimer</span></button>
+                          <button onClick={(e) => deleteBook(e, book.id)} className="absolute inset-0 z-20 bg-red-600/90 flex flex-col items-center justify-center text-white backdrop-blur-sm transition-opacity"><span className="font-black uppercase text-xs">Supprimer</span></button>
                         )}
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                        <div className="absolute inset-0 z-10 pointer-events-none bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
                       </div>
                       <div className="mt-4 px-2 text-center">
                         <h4 className="font-bold text-slate-800 text-sm line-clamp-2 uppercase tracking-tight leading-tight group-hover:text-blue-600 transition-colors drop-shadow-sm">{book.title}</h4>
