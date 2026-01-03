@@ -47,7 +47,9 @@ const translations = {
     importError: "Erreur import.",
     deleteError: "Erreur: Impossible de supprimer le livre.",
     errorIA: "Erreur: IA",
-    frenchOnly: "Texte en français uniquement"
+    frenchOnly: "Texte en français uniquement",
+    next: "Suivant",
+    previous: "Précédent"
   },
   EN: {
     title: "Magic Book",
@@ -78,7 +80,9 @@ const translations = {
     importError: "Import error.",
     deleteError: "Error: Could not delete the book.",
     errorIA: "Error: AI",
-    frenchOnly: "French text only"
+    frenchOnly: "French text only",
+    next: "Next",
+    previous: "Previous"
   }
 };
 
@@ -92,6 +96,7 @@ const App: React.FC = () => {
   const [pastedText, setPastedText] = useState("");
   const [uiLang, setUiLang] = useState<Language>('FR');
   const [activeCharIndex, setActiveCharIndex] = useState(-1);
+  const [currentPageIndex, setCurrentPageIndex] = useState(0);
 
   const t = translations[uiLang];
 
@@ -352,6 +357,7 @@ const App: React.FC = () => {
 
   const openBook = (book: BookRecord) => {
     if (isManagingLibrary) return;
+    setCurrentPageIndex(0);
     setActiveBook(book);
   };
 
@@ -403,6 +409,8 @@ const App: React.FC = () => {
 
   const reset = () => {
     setActiveBook(null);
+    setCurrentPageIndex(0);
+    setActiveCharIndex(-1);
   };
 
   return (
@@ -488,8 +496,10 @@ const App: React.FC = () => {
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" /></svg>
                   {t.back}
                 </button>
-                <div className="glass px-6 py-3 rounded-2xl">
+                <div className="glass px-6 py-3 rounded-2xl flex items-center gap-4">
                   <h2 className="text-xl font-black text-slate-800 tracking-tighter uppercase">{activeBook.title}</h2>
+                  <div className="w-px h-4 bg-slate-200"></div>
+                  <span className="text-xs font-black text-blue-600 uppercase tracking-widest">{t.page} {currentPageIndex + 1} / {activeBook.pages.length}</span>
                 </div>
                 <div className="flex gap-2">
                   <button
@@ -503,17 +513,18 @@ const App: React.FC = () => {
                 </div>
               </div>
 
-              {activeBook.pages.map((page, idx) => (
-                <div key={page.id} className="glass rounded-[3rem] overflow-hidden flex flex-col min-h-[400px] animate-in slide-in-from-bottom-8 duration-500" style={{ animationDelay: `${idx * 100}ms` }}>
+              {activeBook.pages[currentPageIndex] && (
+                <div key={activeBook.pages[currentPageIndex].id} className="glass rounded-[3rem] overflow-hidden flex flex-col min-h-[400px] animate-in fade-in zoom-in-95 duration-500">
                   <div className="w-full aspect-[4/3] bg-slate-100/50 relative shrink-0">
-                    <img src={`data:image/jpeg;base64,${page.image}`} className="w-full h-full object-contain mix-blend-multiply" alt={`${t.page} ${idx + 1}`} />
-                    <div className="absolute top-6 left-6 px-4 py-2 bg-white/80 backdrop-blur-md rounded-xl text-slate-900 border border-white text-[10px] font-black uppercase tracking-widest shadow-sm">{t.page} {idx + 1}</div>
+                    <img src={`data:image/jpeg;base64,${activeBook.pages[currentPageIndex].image}`} className="w-full h-full object-contain mix-blend-multiply" alt={`${t.page} ${currentPageIndex + 1}`} />
+                    <div className="absolute top-6 left-6 px-4 py-2 bg-white/80 backdrop-blur-md rounded-xl text-slate-900 border border-white text-[10px] font-black uppercase tracking-widest shadow-sm">{t.page} {currentPageIndex + 1}</div>
                   </div>
                   <div className="flex-1 p-8 md:p-12 flex flex-col justify-between relative group">
                     <div className="flex flex-col gap-8">
                       <div className="space-y-6">
-                        {page.sentences.map((s, sentenceIdx) => {
-                          const previousLength = page.sentences.slice(0, sentenceIdx).reduce((acc, curr) => acc + curr.french.length + 1, 0); // +1 for join space
+                        {activeBook.pages[currentPageIndex].sentences.map((s, sentenceIdx) => {
+                          const pageSentences = activeBook.pages[currentPageIndex].sentences;
+                          const previousLength = pageSentences.slice(0, sentenceIdx).reduce((acc, curr) => acc + curr.french.length + 1, 0);
                           const isSentenceActive = (activeCharIndex >= previousLength) && (activeCharIndex < previousLength + s.french.length);
 
                           return (
@@ -523,20 +534,12 @@ const App: React.FC = () => {
                                   let scanIndex = 0;
                                   return s.french.split(' ').map((word, wordIdx) => {
                                     const wordLength = word.length;
-                                    // Find next occurrence ensuring we skip past used parts
                                     const startLocal = s.french.indexOf(word, scanIndex);
                                     const endLocal = startLocal + wordLength;
-
-                                    // Update scan pointer
                                     if (startLocal !== -1) scanIndex = endLocal;
-
-                                    // Global offsets
                                     const startGlobal = previousLength + startLocal;
                                     const endGlobal = previousLength + endLocal;
-
-                                    // Check if active character is within this word's range
-                                    const isWordActive = (activeCharIndex >= startGlobal) && (activeCharIndex <= endGlobal + 1); // +1 buffer
-
+                                    const isWordActive = (activeCharIndex >= startGlobal) && (activeCharIndex <= endGlobal + 1);
                                     return <span key={wordIdx} className={`transition-all duration-75 rounded px-0.5 ${isWordActive ? "bg-yellow-300 text-black shadow-sm" : ""}`}>{word} </span>
                                   });
                                 })()}
@@ -549,11 +552,11 @@ const App: React.FC = () => {
                         })}
                       </div>
 
-                      {page.keywords && page.keywords.length > 0 && (
+                      {activeBook.pages[currentPageIndex].keywords && activeBook.pages[currentPageIndex].keywords!.length > 0 && (
                         <div className="mt-4 pt-6 border-t border-slate-200/60">
                           <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">{t.keywords}</h4>
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            {page.keywords.map((k, i) => (
+                            {activeBook.pages[currentPageIndex].keywords!.map((k, i) => (
                               <button
                                 key={i}
                                 onClick={() => geminiService.browserSpeak(k.word, () => { })}
@@ -574,25 +577,49 @@ const App: React.FC = () => {
                       )}
                     </div>
 
-                    <div className="mt-8 flex justify-end">
-                      {(page.sentences.length > 0) ? (
-                        <div className="relative">
-                          <button
-                            onClick={() => {
-                              const fullText = page.sentences.map(s => s.french).join(' ');
-                              geminiService.playCachedAudio(
-                                page.audio,
-                                fullText,
-                                () => setActiveCharIndex(-1),
-                                (index) => setActiveCharIndex(index)
-                              );
-                            }}
-                            className="w-16 h-16 bg-blue-600 rounded-full shadow-lg shadow-blue-200 hover:scale-110 active:scale-90 transition-all flex items-center justify-center text-white"
-                            title="Écouter"
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-8 h-8 ml-1"><path fillRule="evenodd" d="M4.5 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 0 1 0 1.972l-11.54 6.347a1.125 1.125 0 0 1-1.667-.986V5.653Z" clipRule="evenodd" /></svg>
-                          </button>
-                        </div>
+                    <div className="mt-8 flex items-center justify-between">
+                      <div className="flex gap-4">
+                        <button
+                          disabled={currentPageIndex === 0}
+                          onClick={() => {
+                            setCurrentPageIndex(prev => prev - 1);
+                            setActiveCharIndex(-1);
+                          }}
+                          className={`glass px-6 py-3 rounded-2xl flex items-center gap-2 text-xs font-black uppercase tracking-widest transition-all ${currentPageIndex === 0 ? 'opacity-30 cursor-not-allowed' : 'hover:bg-white hover:scale-105 active:scale-95 text-slate-600'}`}
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
+                          {t.previous}
+                        </button>
+                        <button
+                          disabled={currentPageIndex === activeBook.pages.length - 1}
+                          onClick={() => {
+                            setCurrentPageIndex(prev => prev + 1);
+                            setActiveCharIndex(-1);
+                          }}
+                          className={`glass px-6 py-3 rounded-2xl flex items-center gap-2 text-xs font-black uppercase tracking-widest transition-all ${currentPageIndex === activeBook.pages.length - 1 ? 'opacity-30 cursor-not-allowed' : 'hover:bg-white hover:scale-105 active:scale-95 text-slate-600'}`}
+                        >
+                          {t.next}
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" /></svg>
+                        </button>
+                      </div>
+
+                      {activeBook.pages[currentPageIndex].sentences.length > 0 ? (
+                        <button
+                          onClick={() => {
+                            const page = activeBook.pages[currentPageIndex];
+                            const fullText = page.sentences.map(s => s.french).join(' ');
+                            geminiService.playCachedAudio(
+                              page.audio,
+                              fullText,
+                              () => setActiveCharIndex(-1),
+                              (index) => setActiveCharIndex(index)
+                            );
+                          }}
+                          className="w-16 h-16 bg-blue-600 rounded-full shadow-lg shadow-blue-200 hover:scale-110 active:scale-90 transition-all flex items-center justify-center text-white"
+                          title="Écouter"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-8 h-8 ml-1"><path fillRule="evenodd" d="M4.5 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 0 1 0 1.972l-11.54 6.347a1.125 1.125 0 0 1-1.667-.986V5.653Z" clipRule="evenodd" /></svg>
+                        </button>
                       ) : (
                         <div className="text-center py-4">
                           <span className="text-xs font-black text-slate-300 uppercase tracking-widest">{t.audioUnavailable}</span>
@@ -601,7 +628,8 @@ const App: React.FC = () => {
                     </div>
                   </div>
                 </div>
-              ))}
+              )}
+
             </div>
           </div>
         ) : (
