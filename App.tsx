@@ -479,7 +479,7 @@ const App: React.FC = () => {
                       </p>
                     )}
                   </div>
-                  <div className={`bg-white/80 backdrop-blur-md rounded-2xl overflow-hidden shadow-lg border border-white p-4 flex items-center justify-center ${activeCategory === 'numbers' ? 'min-h-[400px] h-auto' : 'h-40 sm:h-48'}`}>
+                  <div className={`bg-white/80 backdrop-blur-md rounded-2xl overflow-hidden shadow-lg border border-white p-4 flex items-center justify-center ${activeCategory === 'numbers' ? 'min-h-[400px] h-auto' : 'h-64 sm:h-80'}`}>
                     {activeCategory === 'alphabet' ? (
                       <img
                         src={selectedItem.image}
