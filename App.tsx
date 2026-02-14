@@ -479,7 +479,7 @@ const App: React.FC = () => {
                       </p>
                     )}
                   </div>
-                  <div className="bg-white/80 backdrop-blur-md rounded-2xl overflow-hidden shadow-lg border border-white p-4 flex items-center justify-center h-40 sm:h-48">
+                  <div className={`bg-white/80 backdrop-blur-md rounded-2xl overflow-hidden shadow-lg border border-white p-4 flex items-center justify-center ${activeCategory === 'numbers' ? 'min-h-[400px] h-auto' : 'h-40 sm:h-48'}`}>
                     {activeCategory === 'alphabet' ? (
                       <img
                         src={selectedItem.image}
@@ -507,21 +507,21 @@ const App: React.FC = () => {
                         </svg>
                       </div>
                     ) : (
-                      <div className="w-full h-64 overflow-y-auto p-4">
+                      <div className="w-full h-full p-6 bg-white/40 rounded-3xl">
                         {/* Dynamic Number Counting Visualization */}
-                        <div className="flex flex-wrap gap-3 justify-center content-center h-full">
-                          {Array.from({ length: Math.min(parseInt(selectedItem.label), 50) }).map((_, i) => (
+                        <div className="grid grid-cols-10 gap-x-2 gap-y-3 sm:gap-x-4 sm:gap-y-4 justify-items-center">
+                          {Array.from({ length: parseInt(selectedItem.label) }).map((_, i) => (
                             <div
                               key={i}
-                              className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full shadow-sm flex items-center justify-center animate-in zoom-in duration-300 ${['bg-red-400', 'bg-blue-400', 'bg-green-400', 'bg-yellow-400', 'bg-purple-400'][i % 5]}`}
-                              style={{ animationDelay: `${i * 30}ms` }}
+                              className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full shadow-md flex items-center justify-center animate-in zoom-in duration-300 ${['bg-red-400', 'bg-blue-400', 'bg-green-400', 'bg-yellow-400', 'bg-purple-400'][Math.floor(i / 10) % 5]}`}
+                              style={{
+                                animationDelay: `${i * 10}ms`,
+                                border: '2px solid white'
+                              }}
                             >
-                              <div className="w-2 h-2 bg-white/40 rounded-full" />
+                              <div className="w-1.5 h-1.5 bg-white/60 rounded-full" />
                             </div>
                           ))}
-                          {parseInt(selectedItem.label) > 50 && (
-                            <div className="text-xl font-black text-slate-400 flex items-center">+ {parseInt(selectedItem.label) - 50}</div>
-                          )}
                         </div>
                       </div>
                     )}

@@ -18,10 +18,12 @@ let activeAudioContext: AudioContext | null = null;
 let activeSource: AudioBufferSourceNode | null = null;
 let activeAnimationFrameId: number | null = null;
 let currentPlayId: number = 0;
+let lastSpokenText: string = "";
 
 export const geminiService = {
   stopAudio() {
     currentPlayId++; // Invalidate any pending async play operations
+    lastSpokenText = ""; // Clear last spoken text on stop
     if (activeSource) {
       try { activeSource.stop(); } catch (e) { }
       activeSource = null;
@@ -297,8 +299,11 @@ export const geminiService = {
   },
 
   async speakText(text: string, voiceName: VoiceName = 'Kore'): Promise<void> {
+    if (text === lastSpokenText && lastSpokenText !== "") return; // Prevent double speak of same text
+
     this.stopAudio(); // Stop any previous audio
     const myId = currentPlayId;
+    lastSpokenText = text;
 
     const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
     activeAudioContext = ctx;
@@ -348,7 +353,7 @@ export const geminiService = {
         this.stopAudio();
         console.error("SpeakText error:", error);
         // Fallback to browser TTS if Cloud API fails
-        this.browserSpeak(text, () => { }, undefined);
+        this.browserSpeak(text, () => { }, myId);
       }
     }
   },
@@ -455,7 +460,9 @@ export const geminiService = {
     }
   },
 
-  browserSpeak(text: string, onEnd: () => void, onBoundary?: (e: SpeechSynthesisEvent) => void) {
+  browserSpeak(text: string, onEnd: () => void, playId?: number) {
+    if (playId !== undefined && playId !== currentPlayId) return;
+
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'fr-FR';
@@ -471,8 +478,11 @@ export const geminiService = {
     }
 
     utterance.rate = 0.9;
-    utterance.onend = onEnd;
-    if (onBoundary) utterance.onboundary = onBoundary;
+    utterance.onend = () => {
+      if (playId === undefined || playId === currentPlayId) {
+        onEnd();
+      }
+    };
     window.speechSynthesis.speak(utterance);
   }
 };

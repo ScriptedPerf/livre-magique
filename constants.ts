@@ -68,7 +68,7 @@ const getFrenchNumberWord = (n: number): string => {
 // High-quality counting toy image
 const NUMBER_IMAGE_URL = 'https://images.unsplash.com/photo-1634152962476-4b8a00e1915c?auto=format&fit=crop&q=80&w=400';
 
-export const NUMBER_ITEMS: LearningItem[] = Array.from({ length: 10 }, (_, i) => {
+export const NUMBER_ITEMS: LearningItem[] = Array.from({ length: 100 }, (_, i) => {
     const n = i + 1;
     const colors = ['bg-blue-400', 'bg-purple-400', 'bg-indigo-400', 'bg-teal-400', 'bg-emerald-400', 'bg-cyan-400'];
     const textColors = ['text-blue-900', 'text-purple-900', 'text-indigo-900', 'text-teal-900', 'text-emerald-900', 'text-cyan-900'];
