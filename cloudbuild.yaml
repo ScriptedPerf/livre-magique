@@ -41,7 +41,7 @@ steps:
       - '--set-env-vars=GEMINI_API_KEY=$_GEMINI_API_KEY'
 
 substitutions:
-  _GEMINI_API_KEY: "This_Value_Is_Set_In_Cloud_Build_Settings"
+  _GEMINI_API_KEY: "AIzaSyAySvYfwximjjwmOv_cXF-v3wmmIPpERgc"
   _TAG: "latest"
 
 options:
