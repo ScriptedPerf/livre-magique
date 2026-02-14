@@ -33,3 +33,6 @@ archive/
 
 # AI Agent Configuration
 .agent/
+
+# Cloud Build
+cloudbuild.yaml
