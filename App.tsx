@@ -352,6 +352,7 @@ const App: React.FC = () => {
 
   // Magic Learning Logic
   const playFullPhonics = async (item: LearningItem) => {
+    geminiService.stopAudio(); // Ensure cleanup before starting
     const phrase = activeCategory === 'alphabet'
       ? `<speak>${item.label} <break time="800ms"/> comme ${item.word}</speak>`
       : activeCategory === 'shapes'
@@ -374,6 +375,7 @@ const App: React.FC = () => {
   };
 
   const handleItemClick = (item: LearningItem) => {
+    geminiService.stopAudio(); // Stop any previous letter-sound that might be playing
     setSelectedItem(item);
     playFullPhonics(item);
   };

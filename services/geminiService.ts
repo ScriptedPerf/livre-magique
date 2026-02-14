@@ -17,9 +17,11 @@ const decode = (base64: string) => {
 let activeAudioContext: AudioContext | null = null;
 let activeSource: AudioBufferSourceNode | null = null;
 let activeAnimationFrameId: number | null = null;
+let currentPlayId: number = 0;
 
 export const geminiService = {
   stopAudio() {
+    currentPlayId++; // Invalidate any pending async play operations
     if (activeSource) {
       try { activeSource.stop(); } catch (e) { }
       activeSource = null;
@@ -296,22 +298,31 @@ export const geminiService = {
 
   async speakText(text: string, voiceName: VoiceName = 'Kore'): Promise<void> {
     this.stopAudio(); // Stop any previous audio
+    const myId = currentPlayId;
 
     const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
     activeAudioContext = ctx;
 
     try {
       // Use standard Cloud TTS (reliable) instead of Gemini Native Audio for better consistency
-      // Note: 'Kore' is not a standard Cloud TTS voice, so we fallback to 'Marie' (Neural2-A) if needed
       const cloudVoiceName: VoiceName = (voiceName === 'Kore') ? 'Marie' : voiceName;
 
       const audioBase64 = await this.getAudioBytes(text, cloudVoiceName);
+      if (myId !== currentPlayId) {
+        ctx.close();
+        return;
+      }
 
       // Decode Base64 string to Uint8Array
       const decodedBytes = decode(audioBase64);
 
       // Use native browser decoding for MP3/valid audio formats
       const audioBuffer = await ctx.decodeAudioData(decodedBytes.buffer);
+
+      if (myId !== currentPlayId) {
+        ctx.close();
+        return;
+      }
 
       // Resume context if suspended (browser autoplay policy)
       if (ctx.state === 'suspended') {
@@ -333,10 +344,12 @@ export const geminiService = {
         };
       });
     } catch (error) {
-      this.stopAudio();
-      console.error("SpeakText error:", error);
-      // Fallback to browser TTS if Cloud API fails
-      this.browserSpeak(text, () => { }, undefined);
+      if (myId === currentPlayId) {
+        this.stopAudio();
+        console.error("SpeakText error:", error);
+        // Fallback to browser TTS if Cloud API fails
+        this.browserSpeak(text, () => { }, undefined);
+      }
     }
   },
 
@@ -381,6 +394,7 @@ export const geminiService = {
 
   async playCachedAudio(base64: string, text: string, onEnd: () => void, onProgress?: (charIndex: number) => void) {
     this.stopAudio(); // Stop any pending audio
+    const myId = currentPlayId;
 
     if (!base64 && text) {
       this.browserSpeak(text, onEnd, undefined);
@@ -394,6 +408,11 @@ export const geminiService = {
       const bytes = decode(base64);
       const buffer = await ctx.decodeAudioData(bytes.buffer);
 
+      if (myId !== currentPlayId) {
+        ctx.close();
+        return;
+      }
+
       const source = ctx.createBufferSource();
       source.buffer = buffer;
       source.connect(ctx.destination);
@@ -403,7 +422,7 @@ export const geminiService = {
       const duration = buffer.duration;
 
       const trackProgress = () => {
-        if (!activeAudioContext || activeAudioContext !== ctx) return; // Stale context
+        if (!activeAudioContext || activeAudioContext !== ctx || myId !== currentPlayId) return; // Stale context
 
         const elapsed = ctx.currentTime - startTime;
         if (elapsed < duration) {
@@ -417,7 +436,7 @@ export const geminiService = {
       };
 
       source.onended = () => {
-        if (activeSource === source) {
+        if (activeSource === source && myId === currentPlayId) {
           if (onProgress) onProgress(text.length);
           this.stopAudio(); // Cleanup
           onEnd();
@@ -428,9 +447,11 @@ export const geminiService = {
       if (onProgress) trackProgress();
 
     } catch (error) {
-      console.error("Playback error:", error);
-      this.stopAudio();
-      this.browserSpeak(text, onEnd, undefined);
+      if (myId === currentPlayId) {
+        console.error("Playback error:", error);
+        this.stopAudio();
+        this.browserSpeak(text, onEnd, undefined);
+      }
     }
   },
 
