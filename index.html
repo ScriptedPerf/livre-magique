@@ -7,9 +7,43 @@
   <title>Livre Magique</title>
   <link rel="icon" type="image/svg+xml" href="/icon.svg">
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          animation: {
+            'float': 'float 20s infinite alternate',
+          },
+          keyframes: {
+            float: {
+              '0%': { transform: 'translate(0, 0) scale(1)' },
+              '100%': { transform: 'translate(50px, 50px) scale(1.1)' },
+            }
+          }
+        }
+      }
+    }
+  </script>
   <link
     href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lora:ital,wght@0,400..700;1,400..700&display=swap"
     rel="stylesheet">
+  <style type="text/tailwindcss">
+    @layer utilities {
+      .glass {
+        @apply bg-white/70 backdrop-blur-xl border border-white/40 shadow-xl;
+      }
+      .glass-card {
+        @apply bg-white/80 backdrop-blur-md border border-white/50 shadow-lg hover:shadow-2xl transition-all duration-300;
+      }
+      .no-scrollbar::-webkit-scrollbar {
+        display: none;
+      }
+      .no-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+      }
+    }
+  </style>
   <style>
     body {
       font-family: 'Inter', sans-serif;

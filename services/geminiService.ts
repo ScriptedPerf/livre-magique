@@ -11,25 +11,30 @@ const decode = (base64: string) => {
   return bytes;
 };
 
-async function decodeAudioData(
-  data: Uint8Array,
-  ctx: AudioContext,
-  sampleRate: number,
-  numChannels: number,
-): Promise<AudioBuffer> {
-  const dataInt16 = new Int16Array(data.buffer, data.byteOffset, data.byteLength / 2);
-  const frameCount = dataInt16.length / numChannels;
-  const audioBuffer = ctx.createBuffer(numChannels, frameCount, sampleRate);
-  for (let channel = 0; channel < numChannels; channel++) {
-    const channelData = audioBuffer.getChannelData(channel);
-    for (let i = 0; i < frameCount; i++) {
-      channelData[i] = dataInt16[i * numChannels + channel] / 32768.0;
-    }
-  }
-  return audioBuffer;
-}
+
+
+// Global audio state to enforce single playback
+let activeAudioContext: AudioContext | null = null;
+let activeSource: AudioBufferSourceNode | null = null;
+let activeAnimationFrameId: number | null = null;
 
 export const geminiService = {
+  stopAudio() {
+    if (activeSource) {
+      try { activeSource.stop(); } catch (e) { }
+      activeSource = null;
+    }
+    if (activeAudioContext) {
+      try { activeAudioContext.close(); } catch (e) { }
+      activeAudioContext = null;
+    }
+    if (activeAnimationFrameId !== null) {
+      cancelAnimationFrame(activeAnimationFrameId);
+      activeAnimationFrameId = null;
+    }
+    window.speechSynthesis.cancel();
+  },
+
   async processPage(imageBase64: string, voiceName: VoiceName): Promise<{ title: string; sentences: { french: string; english: string }[]; keywords: { word: string; pronunciation: string; explanation: string }[]; audio: string }> {
     const apiKey = ((window as any).env?.GEMINI_API_KEY || process.env.API_KEY || process.env.GEMINI_API_KEY) as string;
     const ai = new GoogleGenAI({ apiKey });
@@ -38,7 +43,7 @@ export const geminiService = {
       console.log("Analyzing page text content with Schema...");
 
       const response = await ai.models.generateContent({
-        model: 'gemini-2.0-flash',
+        model: 'gemini-2.5-flash',
         contents: [{
           parts: [
             { inlineData: { data: imageBase64, mimeType: 'image/jpeg' } },
@@ -140,7 +145,7 @@ export const geminiService = {
 
       // Step 1: Analyze text to split into pages and get ONE visual prompt
       const segmentationResponse = await ai.models.generateContent({
-        model: 'gemini-2.0-flash',
+        model: 'gemini-2.5-flash',
         contents: [{
           parts: [{
             text: `You are a professional children's book editor.
@@ -241,7 +246,7 @@ export const geminiService = {
     const ai = new GoogleGenAI({ apiKey });
 
     const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash',
+      model: 'gemini-2.5-flash',
       contents: [{
         parts: [{
           text: `Analyze the following French text: "${text}". 
@@ -281,7 +286,7 @@ export const geminiService = {
   async generateCover(prompt: string): Promise<string> {
     const ai = new GoogleGenAI({ apiKey: ((window as any).env?.GEMINI_API_KEY || process.env.API_KEY || process.env.GEMINI_API_KEY) as string });
     const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash',
+      model: 'gemini-2.5-flash',
       contents: [{ parts: [{ text: `Vibrant children's book cover: ${prompt}` }] }],
     });
     const data = response.candidates?.[0]?.content?.parts?.find(p => p.inlineData)?.inlineData?.data;
@@ -289,7 +294,55 @@ export const geminiService = {
     return data;
   },
 
+  async speakText(text: string, voiceName: VoiceName = 'Kore'): Promise<void> {
+    this.stopAudio(); // Stop any previous audio
+
+    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    activeAudioContext = ctx;
+
+    try {
+      // Use standard Cloud TTS (reliable) instead of Gemini Native Audio for better consistency
+      // Note: 'Kore' is not a standard Cloud TTS voice, so we fallback to 'Marie' (Neural2-A) if needed
+      const cloudVoiceName: VoiceName = (voiceName === 'Kore') ? 'Marie' : voiceName;
+
+      const audioBase64 = await this.getAudioBytes(text, cloudVoiceName);
+
+      // Decode Base64 string to Uint8Array
+      const decodedBytes = decode(audioBase64);
+
+      // Use native browser decoding for MP3/valid audio formats
+      const audioBuffer = await ctx.decodeAudioData(decodedBytes.buffer);
+
+      // Resume context if suspended (browser autoplay policy)
+      if (ctx.state === 'suspended') {
+        await ctx.resume();
+      }
+
+      const source = ctx.createBufferSource();
+      source.buffer = audioBuffer;
+      source.connect(ctx.destination);
+      activeSource = source;
+      source.start();
+
+      return new Promise<void>((resolve) => {
+        source.onended = () => {
+          if (activeSource === source) {
+            this.stopAudio(); // Cleanup self
+            resolve();
+          }
+        };
+      });
+    } catch (error) {
+      this.stopAudio();
+      console.error("SpeakText error:", error);
+      // Fallback to browser TTS if Cloud API fails
+      this.browserSpeak(text, () => { }, undefined);
+    }
+  },
+
   async getAudioBytes(text: string, voiceName: VoiceName): Promise<string> {
+    // If voice is Kore, we use TTS experimental model (this helper returns bytes for Cloud TTS though)
+    // For now, mapping Kore to Marie for standard exports if used there
     const apiKey = ((window as any).env?.GEMINI_API_KEY || process.env.API_KEY || process.env.GEMINI_API_KEY) as string;
     const url = `https://texttospeech.googleapis.com/v1/text:synthesize?key=${apiKey}`;
 
@@ -297,7 +350,7 @@ export const geminiService = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        input: { text },
+        input: text.trim().startsWith('<speak>') ? { ssml: text } : { text },
         voice: {
           languageCode: 'fr-FR',
           name: (() => {
@@ -311,7 +364,7 @@ export const geminiService = {
           })()
         },
         audioConfig: {
-          audioEncoding: 'LINEAR16',
+          audioEncoding: 'MP3',
           sampleRateHertz: 24000
         }
       })
@@ -327,41 +380,48 @@ export const geminiService = {
   },
 
   async playCachedAudio(base64: string, text: string, onEnd: () => void, onProgress?: (charIndex: number) => void) {
+    this.stopAudio(); // Stop any pending audio
+
     if (!base64 && text) {
-      this.browserSpeak(text, onEnd, undefined); // No boundary events for simple text fallback yet
+      this.browserSpeak(text, onEnd, undefined);
       return;
     }
 
-    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
-    try {
-      const buffer = await decodeAudioData(decode(base64), audioContext, 24000, 1);
-      const source = audioContext.createBufferSource();
-      source.buffer = buffer;
-      source.connect(audioContext.destination);
+    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    activeAudioContext = ctx;
 
-      const startTime = audioContext.currentTime;
+    try {
+      const bytes = decode(base64);
+      const buffer = await ctx.decodeAudioData(bytes.buffer);
+
+      const source = ctx.createBufferSource();
+      source.buffer = buffer;
+      source.connect(ctx.destination);
+      activeSource = source;
+
+      const startTime = ctx.currentTime;
       const duration = buffer.duration;
-      let animationFrameId: number;
 
       const trackProgress = () => {
-        const elapsed = audioContext.currentTime - startTime;
+        if (!activeAudioContext || activeAudioContext !== ctx) return; // Stale context
+
+        const elapsed = ctx.currentTime - startTime;
         if (elapsed < duration) {
           if (onProgress) {
-            // Estimated char index based on linear time mapping
-            // This assumes constant speaking rate, which isn't perfect but is a good approximation for sentence tracking
             const progress = elapsed / duration;
             const estimatedIndex = Math.floor(progress * text.length);
             onProgress(estimatedIndex);
           }
-          animationFrameId = requestAnimationFrame(trackProgress);
+          activeAnimationFrameId = requestAnimationFrame(trackProgress);
         }
       };
 
       source.onended = () => {
-        if (onProgress) onProgress(text.length); // Ensure we finish at the end
-        cancelAnimationFrame(animationFrameId);
-        onEnd();
-        audioContext.close();
+        if (activeSource === source) {
+          if (onProgress) onProgress(text.length);
+          this.stopAudio(); // Cleanup
+          onEnd();
+        }
       };
 
       source.start();
@@ -369,22 +429,29 @@ export const geminiService = {
 
     } catch (error) {
       console.error("Playback error:", error);
-      this.browserSpeak(text, onEnd, undefined); // Fallback
-      audioContext.close();
+      this.stopAudio();
+      this.browserSpeak(text, onEnd, undefined);
     }
   },
 
   browserSpeak(text: string, onEnd: () => void, onBoundary?: (e: SpeechSynthesisEvent) => void) {
-    // Cancel any ongoing speech first
     window.speechSynthesis.cancel();
-
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'fr-FR';
+
+    // Try to find a good French voice
+    const voices = window.speechSynthesis.getVoices();
+    const frenchVoice = voices.find(v => v.lang === 'fr-FR' && v.name.toLowerCase().includes('google'))
+      || voices.find(v => v.lang === 'fr-FR')
+      || voices.find(v => v.lang.startsWith('fr'));
+
+    if (frenchVoice) {
+      utterance.voice = frenchVoice;
+    }
+
     utterance.rate = 0.9;
     utterance.onend = onEnd;
-    if (onBoundary) {
-      utterance.onboundary = onBoundary;
-    }
+    if (onBoundary) utterance.onboundary = onBoundary;
     window.speechSynthesis.speak(utterance);
   }
 };
