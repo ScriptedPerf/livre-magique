@@ -13,6 +13,9 @@ const TracingCanvas: React.FC<TracingCanvasProps> = ({ letter, color, onComplete
     const lastPos = useRef<{ x: number; y: number } | null>(null);
     const strokeDistance = useRef(0);
 
+    // Track state in refs for use in event listeners
+    const isDrawingRef = useRef(false);
+
     useEffect(() => {
         const canvas = canvasRef.current;
         if (!canvas) return;
@@ -20,6 +23,38 @@ const TracingCanvas: React.FC<TracingCanvasProps> = ({ letter, color, onComplete
         if (!ctx) return;
         drawBackground(ctx, canvas.width, canvas.height);
         strokeDistance.current = 0;
+
+        // Manual event listeners for touch with passive: false to allow preventDefault
+        const handleTouchStart = (e: TouchEvent) => {
+            e.preventDefault();
+            setIsDrawing(true);
+            isDrawingRef.current = true;
+            const pos = getCoordinates(e);
+            lastPos.current = pos;
+        };
+
+        const handleTouchMove = (e: TouchEvent) => {
+            e.preventDefault();
+            if (!isDrawingRef.current) return;
+            drawAction(e);
+        };
+
+        const handleTouchEnd = (e: TouchEvent) => {
+            // e.preventDefault(); // Don't prevent default on end to allow clicks elsewhere
+            setIsDrawing(false);
+            isDrawingRef.current = false;
+            stopDrawingAction();
+        };
+
+        canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
+        canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
+        canvas.addEventListener('touchend', handleTouchEnd, { passive: false });
+
+        return () => {
+            canvas.removeEventListener('touchstart', handleTouchStart);
+            canvas.removeEventListener('touchmove', handleTouchMove);
+            canvas.removeEventListener('touchend', handleTouchEnd);
+        };
     }, [letter]);
 
     const drawBackground = (ctx: CanvasRenderingContext2D, width: number, height: number) => {
@@ -58,8 +93,16 @@ const TracingCanvas: React.FC<TracingCanvasProps> = ({ letter, color, onComplete
         if (!canvas) return { x: 0, y: 0 };
 
         const rect = canvas.getBoundingClientRect();
-        const clientX = 'touches' in e ? (e as TouchEvent).touches[0].clientX : (e as MouseEvent).clientX;
-        const clientY = 'touches' in e ? (e as TouchEvent).touches[0].clientY : (e as MouseEvent).clientY;
+
+        // Handle touches (native or react)
+        let clientX, clientY;
+        if ('touches' in e && e.touches.length > 0) {
+            clientX = e.touches[0].clientX;
+            clientY = e.touches[0].clientY;
+        } else {
+            clientX = (e as MouseEvent).clientX;
+            clientY = (e as MouseEvent).clientY;
+        }
 
         const scaleX = canvas.width / rect.width;
         const scaleY = canvas.height / rect.height;
@@ -70,18 +113,15 @@ const TracingCanvas: React.FC<TracingCanvasProps> = ({ letter, color, onComplete
         };
     };
 
-    const startDrawing = (e: React.MouseEvent | React.TouchEvent) => {
+    const startDrawing = (e: React.MouseEvent) => {
         setIsDrawing(true);
+        isDrawingRef.current = true;
         const pos = getCoordinates(e);
         lastPos.current = pos;
-
-        if (e.cancelable) e.preventDefault();
     };
 
-    const stopDrawing = () => {
-        setIsDrawing(false);
+    const stopDrawingAction = () => {
         lastPos.current = null;
-
         // Simple heuristic: if they drew enough, assume success
         if (strokeDistance.current > 300) {
             if (onComplete) onComplete();
@@ -89,8 +129,13 @@ const TracingCanvas: React.FC<TracingCanvasProps> = ({ letter, color, onComplete
         }
     };
 
-    const draw = (e: React.MouseEvent | React.TouchEvent) => {
-        if (!isDrawing) return;
+    const stopDrawing = () => {
+        setIsDrawing(false);
+        isDrawingRef.current = false;
+        stopDrawingAction();
+    };
+
+    const drawAction = (e: React.MouseEvent | React.TouchEvent | MouseEvent | TouchEvent) => {
         const canvas = canvasRef.current;
         if (!canvas) return;
         const ctx = canvas.getContext('2d');
@@ -121,7 +166,11 @@ const TracingCanvas: React.FC<TracingCanvasProps> = ({ letter, color, onComplete
 
         ctx.shadowBlur = 0;
         lastPos.current = pos;
-        if (e.cancelable) e.preventDefault();
+    };
+
+    const draw = (e: React.MouseEvent) => {
+        if (!isDrawing) return;
+        drawAction(e);
     };
 
     const clearCanvas = () => {
@@ -144,9 +193,7 @@ const TracingCanvas: React.FC<TracingCanvasProps> = ({ letter, color, onComplete
                     onMouseMove={draw}
                     onMouseUp={stopDrawing}
                     onMouseLeave={stopDrawing}
-                    onTouchStart={startDrawing}
-                    onTouchMove={draw}
-                    onTouchEnd={stopDrawing}
+                    style={{ touchAction: 'none' }}
                     className="cursor-crosshair w-full h-auto block"
                 />
             </div>
