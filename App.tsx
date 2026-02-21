@@ -725,7 +725,7 @@ const App: React.FC = () => {
                         <button
                           onClick={() => {
                             const page = activeBook.pages[currentPageIndex];
-                            geminiService.playCachedAudio(page.audio || "", page.sentences.map(s => s.french).join(' '), () => setActiveCharIndex(-1), (idx) => setActiveCharIndex(idx));
+                            geminiService.playCachedAudio(page.audio || "", page.sentences.map(s => s.french).join(' '), selectedVoice, () => setActiveCharIndex(-1), (idx) => setActiveCharIndex(idx));
                           }}
                           className="w-16 h-16 bg-blue-600 rounded-full shadow-lg hover:scale-110 active:scale-90 transition-all flex items-center justify-center text-white"
                         >

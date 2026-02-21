@@ -397,13 +397,26 @@ export const geminiService = {
     return data.audioContent;
   },
 
-  async playCachedAudio(base64: string, text: string, onEnd: () => void, onProgress?: (charIndex: number) => void) {
+  async playCachedAudio(base64: string, text: string, voiceName: VoiceName, onEnd: () => void, onProgress?: (charIndex: number) => void) {
     this.stopAudio(); // Stop any pending audio
     const myId = currentPlayId;
 
-    if (!base64 && text) {
-      this.browserSpeak(text, onEnd, undefined);
-      return;
+    let finalBase64 = base64;
+
+    if (!finalBase64 && text) {
+      // Try to generate it on the fly first
+      try {
+        const cloudVoiceName: VoiceName = (voiceName === 'Kore') ? 'Marie' : voiceName;
+        finalBase64 = await this.getAudioBytes(text, cloudVoiceName);
+      } catch (e) {
+        console.error("Failed to generate audio on the fly", e);
+      }
+
+      // If still no base64, fall back to browser default
+      if (!finalBase64) {
+        this.browserSpeak(text, onEnd, undefined);
+        return;
+      }
     }
 
     const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
